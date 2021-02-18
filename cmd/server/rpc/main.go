@@ -21,7 +21,7 @@ func main() {
 	var options []grpc.ServerOption
 	srv := grpc.NewServer(options...)
 
-	registry.RegisterRegistryServiceServer(srv, &registry.Store{})
+	registry.RegisterRegistryServiceServer(srv, registry.New())
 
 	logrus.Infof("RPC registry service listen and accepting client connection on %q", listener.Addr())
 	if err := srv.Serve(listener); err != nil {
