@@ -31,6 +31,47 @@ func setupRoutes(app *fiber.App, client registry.RegistryServiceClient) {
 			return c.JSON(nodes)
 		},
 	)
+
+	route.Get(
+		"services/:name",
+		func(c *fiber.Ctx) error {
+			nodes, err := client.Search(c.Context(), &registry.SearchReq{Name: c.Params("name")})
+			if err != nil {
+				return err
+			}
+
+			return c.JSON(nodes)
+		},
+	)
+
+	route.Get(
+		"node/:uid",
+		func(c *fiber.Ctx) error {
+			node, err := client.Get(c.Context(), &registry.GetReq{Uid: c.Params("uid")})
+			if err != nil {
+				return err
+			}
+
+			return c.JSON(node)
+		},
+	)
+
+	route.Delete(
+		"node/:uid",
+		func(c *fiber.Ctx) error {
+			node, err := client.Get(c.Context(), &registry.GetReq{Uid: c.Params("uid")})
+			if err != nil {
+				return err
+			}
+
+			nodes, err := client.Unregister(c.Context(), node)
+			if err != nil {
+				return err
+			}
+
+			return c.JSON(nodes)
+		},
+	)
 }
 
 func main() {
