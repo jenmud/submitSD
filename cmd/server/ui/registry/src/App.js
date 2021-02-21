@@ -1,6 +1,9 @@
 import 'fomantic-ui-css/semantic.css';
 import './App.css';
 import { Container, Header, Icon, Table } from 'semantic-ui-react';
+import axios from 'axios';
+import $ from 'jquery';
+import 'datatables.net-se';
 
 function App() {
   return (
