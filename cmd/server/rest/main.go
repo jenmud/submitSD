@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"net"
 
@@ -49,6 +50,20 @@ func setupRoutes(app *fiber.App, client registry.RegistryServiceClient) {
 		func(c *fiber.Ctx) error {
 			node, err := client.Get(c.Context(), &registry.GetReq{Uid: c.Params("uid")})
 			if err != nil {
+				return err
+			}
+
+			return c.JSON(node)
+		},
+	)
+
+	route.Post(
+		"node",
+		func(c *fiber.Ctx) error {
+			node := new(registry.Node)
+			payload := c.Body()
+
+			if err := json.Unmarshal(payload, node); err != nil {
 				return err
 			}
 
