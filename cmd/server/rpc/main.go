@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"net"
 
@@ -10,6 +11,7 @@ import (
 )
 
 func main() {
+	name := flag.String("service-name", "registry.srv", "Serivice registry name.")
 	addr := flag.String("addr", ":8000", "Address to listen and accept client connections.")
 	flag.Parse()
 
@@ -20,10 +22,15 @@ func main() {
 
 	var options []grpc.ServerOption
 	srv := grpc.NewServer(options...)
+	reg := registry.New()
+	node, err := reg.Register(context.Background(), &registry.Node{Name: *name, Address: *addr})
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
-	registry.RegisterRegistryServiceServer(srv, registry.New())
+	registry.RegisterRegistryServiceServer(srv, reg)
 
-	logrus.Infof("RPC registry service listen and accepting client connection on %q", listener.Addr())
+	logrus.Infof("RPC registry service (%s, %s) listen and accepting client connection on %q", node.GetName(), node.GetUid(), listener.Addr())
 	if err := srv.Serve(listener); err != nil {
 		logrus.Fatalf("Error starting registry RPC service %q: %s", *addr, err)
 	}
