@@ -1,11 +1,12 @@
 import 'fomantic-ui-css/semantic.css';
-import { Container, Header, Table } from 'semantic-ui-react';
+import './App.css';
+import { Container, Header, Icon, Table } from 'semantic-ui-react';
 
 function App() {
   return (
     <div className="App">
-      <Container>
-        <Header>Registry</Header>
+      <Container className="app-container">
+        <Header><Icon name="registered outline">egistry</Icon></Header>
 
         <Table celled>
           <Table.Header>
