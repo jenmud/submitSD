@@ -85,5 +85,16 @@ func TestStore_Search__Found(t *testing.T) {
 	node3, err := store.Register(ctx, &Node{Name: "web.srv", Address: "tcp://localhost:3456"})
 	actual, err := store.Search(ctx, &SearchReq{Name: "web.srv"})
 	assert.Nil(t, err)
-	assert.Equal(t, []*Node{node1, node3}, actual.GetNodes())
+	assert.ElementsMatch(t, []*Node{node1, node3}, actual.GetNodes())
+}
+
+func TestStore_Search__all_nodes(t *testing.T) {
+	ctx := context.Background()
+	store := New()
+	node1, err := store.Register(ctx, &Node{Name: "web.srv", Address: "tcp://localhost:1234"})
+	node2, err := store.Register(ctx, &Node{Name: "mail.srv", Address: "tcp://localhost:2345"})
+	node3, err := store.Register(ctx, &Node{Name: "web.srv", Address: "tcp://localhost:3456"})
+	actual, err := store.Search(ctx, &SearchReq{Name: "*"})
+	assert.Nil(t, err)
+	assert.ElementsMatch(t, []*Node{node1, node2, node3}, actual.GetNodes())
 }

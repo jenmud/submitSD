@@ -91,7 +91,10 @@ func (s *Store) Search(ctx context.Context, req *SearchReq) (*SearchResp, error)
 	nodes := []*Node{}
 
 	for _, node := range s.reg {
-		if node.GetName() == req.GetName() {
+		switch req.GetName() {
+		case "*":
+			nodes = append(nodes, node)
+		case node.GetName():
 			nodes = append(nodes, node)
 		}
 	}

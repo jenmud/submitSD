@@ -67,6 +67,7 @@ service RegistryService {
     rpc Unregister(Node) returns (UnregisterResp);
 
     // Search searchs the registry for nodes.
+    // If `name` is `*`, then all nodes are returned.`
     rpc Search(SearchReq) returns (SearchResp);
 
     // Get returns the node by `UID`.
