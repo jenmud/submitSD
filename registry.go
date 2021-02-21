@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,12 +19,16 @@ func New() *Store {
 
 // Store used for storing and querying for nodes.
 type Store struct {
+	lock sync.RWMutex
 	UnimplementedRegistryServiceServer
 	reg map[string]*Node
 }
 
 // Register registers a new node.
 func (s *Store) Register(ctx context.Context, node *Node) (*Node, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	resp := new(Node)
 
 	/*
@@ -51,6 +56,9 @@ func (s *Store) Register(ctx context.Context, node *Node) (*Node, error) {
 
 // Unregister unregisters a node from the registry.
 func (s *Store) Unregister(ctx context.Context, node *Node) (*UnregisterResp, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	if node.GetUid() == "" {
 		return nil, fmt.Errorf("Node UID field is required")
 	}
@@ -65,6 +73,9 @@ func (s *Store) Unregister(ctx context.Context, node *Node) (*UnregisterResp, er
 
 // Get queries and fetches the node from the registry.
 func (s *Store) Get(ctx context.Context, req *GetReq) (*Node, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	if node, ok := s.reg[req.GetUid()]; ok {
 		return node, nil
 	}
@@ -74,6 +85,9 @@ func (s *Store) Get(ctx context.Context, req *GetReq) (*Node, error) {
 
 // Search searches the registry for node with matching names.
 func (s *Store) Search(ctx context.Context, req *SearchReq) (*SearchResp, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	nodes := []*Node{}
 
 	for _, node := range s.reg {
