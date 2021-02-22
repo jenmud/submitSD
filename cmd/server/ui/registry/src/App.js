@@ -1,4 +1,4 @@
-import 'fomantic-ui-css/semantic.css';
+import 'semantic-ui-css/semantic.min.css'
 import './App.css';
 import { Container, Header, Icon, Table } from 'semantic-ui-react';
 import axios from 'axios';
