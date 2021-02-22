@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"flag"
 	"net"
+	"time"
 
 	fiber "github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/jenmud/registry"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -110,7 +112,15 @@ func main() {
 	}
 
 	client := registry.NewRegistryServiceClient(conn)
-	app := fiber.New()
+
+	app := fiber.New(
+		fiber.Config{
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 15 * time.Second,
+		},
+	)
+
+	app.Use(cors.New(cors.ConfigDefault))
 
 	node := &registry.Node{Name: *name, Address: listener.Addr().Network() + "://" + listener.Addr().String()}
 	rnode, err := client.Register(context.Background(), node)
