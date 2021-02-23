@@ -26,13 +26,16 @@ export class Registry extends Component {
             .then(resp => resp.data)
             .then(json => {
                 json["nodes"].forEach(node => {
-                    t.row.add(
+                    var row = t.row.add(
                         [
                             node.uid,
                             node.name,
                             node.address,
                         ]
-                    ).draw();
+                    );
+
+                    row.node().id = node.uid;
+                    row.draw();
                 });
             }).catch(err => console.error(err));
     }
