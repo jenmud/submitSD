@@ -28,8 +28,8 @@ export class Registry extends Component {
                 json["nodes"].forEach(node => {
                     var row = t.row.add(
                         [
-                            node.uid,
-                            node.name,
+                            `<a href="${this.props.service + "/node/" + node.uid}">${node.uid}</a>`,
+                            `<a href="${this.props.service + "/services/" + node.name}">${node.name}</a>`,
                             node.address,
                         ]
                     );
