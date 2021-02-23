@@ -3,7 +3,10 @@ import { Table } from 'semantic-ui-react';
 
 import axios from 'axios';
 import $ from 'jquery';
+
 import 'datatables.net-se';
+import 'datatables.net-colreorder-se';
+
 import { Node } from './Node.js';
 
 export class Registry extends Component {
@@ -13,7 +16,12 @@ export class Registry extends Component {
     }
 
     componentDidMount() {
-        var t = $("table#registry-table").DataTable();
+        var t = $("table#registry-table").DataTable(
+            {
+                colReorder: true,
+            }
+        );
+
         this.services()
             .then(resp => resp.data)
             .then(json => {
