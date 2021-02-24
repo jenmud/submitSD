@@ -2,12 +2,6 @@ import React, { Component } from 'react';
 import { Table } from 'semantic-ui-react';
 
 import axios from 'axios';
-import $ from 'jquery';
-
-import 'datatables.net-se';
-import 'datatables.net-colreorder-se';
-
-import { Node } from './Node.js';
 
 export class Registry extends Component {
 
@@ -15,40 +9,42 @@ export class Registry extends Component {
         super(props)
     }
 
-    componentDidMount() {
-        var t = $("table#registry-table").DataTable(
-            {
-                colReorder: true,
-            }
-        );
+    rows() {
+        /*
+            Fetch all the services from the Restful endpoint
+            and create all the rows.
+        */
+        let resp = async () => await fetch(this.props.service + "/services")
+        if (resp.ok) {
+            return resp.json()
+        }
 
-        this.services()
-            .then(resp => resp.data)
-            .then(json => {
-                json["nodes"].forEach(node => {
-                    var row = t.row.add(
-                        [
-                            `<a href="${this.props.service + "/node/" + node.uid}">${node.uid}</a>`,
-                            `<a href="${this.props.service + "/services/" + node.name}">${node.name}</a>`,
-                            node.address,
-                        ]
-                    );
-
-                    row.node().id = node.uid;
-                    row.draw();
-                });
-            }).catch(err => console.error(err));
-    }
-
-    services() {
-        return axios.get(this.props.service + "/services");
-    }
-
-    node(id) {
-        return axios.get(this.props.service + "/node/" + id)
+        return []
     }
 
     render() {
+        const rows = this.rows()
+
+        //var resp = async () => await axios.get(this.props.service + "/services")
+        //    .then(resp => resp.data)
+        //    .then(json => {
+        //        json["nodes"].forEach(node => {
+        //            console.debug(node)
+        //            rows.push(
+        //                <Table.Row>
+        //                    <Table.Cell>{node.uid}</Table.Cell>
+        //                    <Table.Cell>{node.name}</Table.Cell>
+        //                    <Table.Cell>{node.address}</Table.Cell>
+        //                </Table.Row>
+        //            )
+        //        })
+        //    })
+        //    .catch(err => console.error(err));
+
+        console.log(rows)
+        /*
+            Render the table with all the services that we received from the Restful endpoint.
+        */
         return <div>
             <Table id="registry-table" celled color="blue" striped textAlign="left" columns="3">
                 <Table.Header>
@@ -58,6 +54,9 @@ export class Registry extends Component {
                         <Table.HeaderCell>Address</Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
+                <Table.Body>
+                    {rows}
+                </Table.Body>
             </Table>
         </div >
     }
