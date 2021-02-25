@@ -1,47 +1,44 @@
 import React, { Component } from 'react';
 import { Table } from 'semantic-ui-react';
 
-import axios from 'axios';
-
 export class Registry extends Component {
 
     constructor(props) {
         super(props)
+        this.state = { rows: [] }
     }
 
-    rows() {
+    componentDidMount() {
         /*
             Fetch all the services from the Restful endpoint
             and create all the rows.
         */
-        let resp = async () => await fetch(this.props.service + "/services")
-        if (resp.ok) {
-            return resp.json()
-        }
+        fetch(this.props.service + "/services")
+            .then(data => {
+                return data.json()
+            })
+            .then(json => {
+                let rows = []
 
-        return []
+                json.nodes.forEach(node => {
+                    rows.push(
+                        <Table.Row id={node.uid} key={node.uid}>
+                            <Table.Cell>{node.uid}</Table.Cell>
+                            <Table.Cell>{node.name}</Table.Cell>
+                            <Table.Cell>{node.address}</Table.Cell>
+                        </Table.Row>
+                    )
+                });
+
+                return rows
+            })
+            .then(rows => {
+                this.setState({ rows: rows })
+            })
+            .catch(err => { console.error(err) })
     }
 
     render() {
-        const rows = this.rows()
-
-        //var resp = async () => await axios.get(this.props.service + "/services")
-        //    .then(resp => resp.data)
-        //    .then(json => {
-        //        json["nodes"].forEach(node => {
-        //            console.debug(node)
-        //            rows.push(
-        //                <Table.Row>
-        //                    <Table.Cell>{node.uid}</Table.Cell>
-        //                    <Table.Cell>{node.name}</Table.Cell>
-        //                    <Table.Cell>{node.address}</Table.Cell>
-        //                </Table.Row>
-        //            )
-        //        })
-        //    })
-        //    .catch(err => console.error(err));
-
-        console.log(rows)
         /*
             Render the table with all the services that we received from the Restful endpoint.
         */
@@ -55,7 +52,7 @@ export class Registry extends Component {
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
-                    {rows}
+                    {this.state.rows}
                 </Table.Body>
             </Table>
         </div >
