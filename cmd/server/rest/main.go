@@ -69,7 +69,12 @@ func setupRoutes(app *fiber.App, client registry.RegistryServiceClient) {
 				return err
 			}
 
-			return c.JSON(node)
+			resp, err := client.Register(c.Context(), node)
+			if err != nil {
+				return err
+			}
+
+			return c.JSON(resp)
 		},
 	)
 

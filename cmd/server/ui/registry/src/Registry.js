@@ -1,10 +1,8 @@
 import React, { Component } from 'react';
-import { Button, Checkbox, Form, Icon, Label, Modal, Popup, Table } from 'semantic-ui-react';
+import { Button, Checkbox, Icon, Modal, Popup, Table } from 'semantic-ui-react';
 
-function Demo(event, data) {
-    console.info(event);
-    console.info(data);
-}
+import { AddNodeForm } from './Node';
+
 
 export class RegistryRow extends Component {
     constructor(props) {
@@ -96,25 +94,10 @@ export class Registry extends Component {
                     <Table.Row>
                         <Table.HeaderCell />
                         <Table.HeaderCell colSpan='4'>
-                            <Modal dimmer open={this.state.open} onOpen={() => this.setState({ open: true })} onClose={() => this.setState({ open: false })} trigger={<Button floated='right' icon labelPosition='left' primary size='small'><Icon name='add' />Add node</Button>}>
+                            <Modal dimmer open={this.state.open} onOpen={() => this.setState({ open: true })} onClose={() => this.setState({ open: false })} trigger={<Button floated='right' icon labelPosition='left' primary size='small'><Icon name='add' />Add service</Button>}>
                                 <Modal.Header>Register a new service</Modal.Header>
-                                <Modal.Content>
-                                    <Form>
-                                        <Form.Field>
-                                            <label>Name</label>
-                                            <input placeholder="Node name eg: my-node.srv" />
-                                        </Form.Field>
-                                        <Form.Field>
-                                            <label>Address</label>
-                                            <input placeholder="Node address eg: registry-ui.com.au:8000" />
-                                        </Form.Field>
-                                        <Form.Field>
-                                            <Button type='submit'>Register</Button>
-                                        </Form.Field>
-                                    </Form>
-                                </Modal.Content>
-                                <Modal.Actions>
-                                </Modal.Actions>
+                                <Modal.Content><AddNodeForm  service={this.props.service} /></Modal.Content>
+                                <Modal.Actions></Modal.Actions>
                             </Modal>
                         </Table.HeaderCell>
                     </Table.Row>
