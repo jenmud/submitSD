@@ -13,6 +13,7 @@ import (
 func main() {
 	name := flag.String("service-name", "registry.srv", "Serivice registry name.")
 	addr := flag.String("addr", ":8000", "Address to listen and accept client connections.")
+	expiry := flag.Duration("expiry-duration", registry.DefaultExpiry, "Default node expiry duration.")
 	flag.Parse()
 
 	listener, err := net.Listen("tcp", *addr)
@@ -22,7 +23,7 @@ func main() {
 
 	var options []grpc.ServerOption
 	srv := grpc.NewServer(options...)
-	reg := registry.New()
+	reg := registry.New(registry.Settings{ExpiryDuration: *expiry})
 	node, err := reg.Register(context.Background(), &registry.Node{Name: *name, Address: *addr})
 	if err != nil {
 		logrus.Fatal(err)
