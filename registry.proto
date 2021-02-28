@@ -20,8 +20,12 @@ message Node {
     // Address is the address the node is reachable in the format <network>://<address>:<port>
     string address = 3 [json_name="address"];
 
+    // ExpiryDuration is the nodes expiry duration eg: 1s. 
+    // If you are registrying a new node with no expiry, the default will be used.
+    string expiry_duration = 4 [json_name="expiry"];
+
     // Metadata is any additional information about the node.
-    map<string, string> metadata = 4 [json_name="metadata"];
+    map<string, string> metadata = 5 [json_name="metadata"];
 }
 
 

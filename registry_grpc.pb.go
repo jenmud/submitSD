@@ -25,6 +25,7 @@ type RegistryServiceClient interface {
 	// Note that the `UID` is required else a error is returned.
 	Unregister(ctx context.Context, in *Node, opts ...grpc.CallOption) (*UnregisterResp, error)
 	// Search searchs the registry for nodes.
+	// If `name` is `*`, then all nodes are returned.`
 	Search(ctx context.Context, in *SearchReq, opts ...grpc.CallOption) (*SearchResp, error)
 	// Get returns the node by `UID`.
 	Get(ctx context.Context, in *GetReq, opts ...grpc.CallOption) (*Node, error)
@@ -85,6 +86,7 @@ type RegistryServiceServer interface {
 	// Note that the `UID` is required else a error is returned.
 	Unregister(context.Context, *Node) (*UnregisterResp, error)
 	// Search searchs the registry for nodes.
+	// If `name` is `*`, then all nodes are returned.`
 	Search(context.Context, *SearchReq) (*SearchResp, error)
 	// Get returns the node by `UID`.
 	Get(context.Context, *GetReq) (*Node, error)

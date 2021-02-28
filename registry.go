@@ -11,44 +11,53 @@ import (
 )
 
 // New returns a new empty registry.
-func New() *Store {
+func New(settings Settings) *Store {
 	return &Store{
-		reg: make(map[string]*Node),
+		settings: settings,
+		reg:      make(map[string]*ExpiryNode),
 	}
 }
 
 // Store used for storing and querying for nodes.
 type Store struct {
-	lock sync.RWMutex
+	lock     sync.RWMutex
+	reg      map[string]*ExpiryNode
+	settings Settings
 	UnimplementedRegistryServiceServer
-	reg map[string]*Node
 }
 
 // Register registers a new node.
-func (s *Store) Register(ctx context.Context, node *Node) (*Node, error) {
+func (s *Store) Register(ctx context.Context, n *Node) (*ExpiryNode, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	resp := new(Node)
+	// parse the expiry else use the default
+	expiry := DefaultExpiry
+	if n.GetExpiryDuration() != "" {
+		e, err := time.ParseDuration(n.GetExpiryDuration())
+		if err != nil {
+			logrus.Errorf("Error parsing node expiry, reverting to default %s: %s", DefaultExpiry, err)
+		} else {
+			expiry = e
+		}
+	}
 
 	/*
 		If the node has a UID, then update the existing UID.
 	*/
-	if n, ok := s.reg[node.GetUid()]; ok {
-		logrus.Infof("Updating node %s with %s", n, node)
-		s.reg[node.GetUid()] = node
-		return node, nil
+	if xn, ok := s.reg[n.GetUid()]; ok {
+		xn.Reset(expiry)
+		logrus.Infof("Updating node %q (%s) with %q (%s), expiry: %s", xn.GetName(), xn.GetUid(), n.GetName(), n.GetUid(), expiry)
+		s.reg[xn.GetUid()] = xn
+		return xn, nil
 	}
 
 	/*
 		If we get to this point, generate a uuid and add to node
 		to the registry.
 	*/
-	resp.Uid = uuid.New().String()
-	resp.Name = node.GetName()
-	resp.Address = node.GetAddress()
-	resp.Metadata = node.GetMetadata()
-
+	n.Uid = uuid.New().String()
+	resp := NewExpiryNode(n, expiry)
 	logrus.Infof("Adding new node (%q), %s", resp.GetUid(), resp)
 	s.reg[resp.GetUid()] = resp
 	return resp, nil
@@ -72,7 +81,7 @@ func (s *Store) Unregister(ctx context.Context, node *Node) (*UnregisterResp, er
 }
 
 // Get queries and fetches the node from the registry.
-func (s *Store) Get(ctx context.Context, req *GetReq) (*Node, error) {
+func (s *Store) Get(ctx context.Context, req *GetReq) (*ExpiryNode, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -84,11 +93,11 @@ func (s *Store) Get(ctx context.Context, req *GetReq) (*Node, error) {
 }
 
 // Search searches the registry for node with matching names.
-func (s *Store) Search(ctx context.Context, req *SearchReq) (*SearchResp, error) {
+func (s *Store) Search(ctx context.Context, req *SearchReq) ([]*ExpiryNode, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
-	nodes := []*Node{}
+	nodes := []*ExpiryNode{}
 
 	for _, node := range s.reg {
 		switch req.GetName() {
@@ -99,5 +108,5 @@ func (s *Store) Search(ctx context.Context, req *SearchReq) (*SearchResp, error)
 		}
 	}
 
-	return &SearchResp{Nodes: nodes}, nil
+	return nodes, nil
 }
