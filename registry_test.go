@@ -27,7 +27,7 @@ func TestStore_Register__New_Node_short_expiry(t *testing.T) {
 	actual, err := store.Register(ctx, node)
 	assert.Nil(t, err)
 	time.Sleep(30 * time.Millisecond)
-	assert.True(t, actual.Expired())
+	assert.True(t, actual.GetExpired())
 }
 
 func TestStore_Register__Update_node_expiry(t *testing.T) {
@@ -45,10 +45,10 @@ func TestStore_Register__Update_node_expiry(t *testing.T) {
 	assert.Nil(t, err)
 	time.Sleep(30 * time.Millisecond)
 	assert.Equal(t, actual.GetUid(), newNode.GetUid())
-	assert.False(t, newNode.Expired())
+	assert.False(t, newNode.GetExpired())
 
 	time.Sleep(40 * time.Millisecond)
-	assert.True(t, actual.Expired())
+	assert.True(t, actual.GetExpired())
 }
 
 func TestStore_Register__Update_Existing_Node(t *testing.T) {
@@ -57,7 +57,7 @@ func TestStore_Register__Update_Existing_Node(t *testing.T) {
 	store := New(settings)
 	node, err := store.Register(ctx, &Node{Address: "tcp://localhost:1234"})
 	node.Address = "udp://localhost:1234"
-	actual, err := store.Register(ctx, node.Node)
+	actual, err := store.Register(ctx, node)
 	assert.Nil(t, err)
 	assert.Equal(t, node.GetUid(), actual.GetUid())
 	assert.Equal(t, "udp://localhost:1234", actual.GetAddress())
@@ -68,7 +68,7 @@ func TestStore_Unregister__Existing_node(t *testing.T) {
 	settings := Settings{ExpiryDuration: DefaultExpiry}
 	store := New(settings)
 	node, err := store.Register(ctx, &Node{Address: "tcp://localhost:1234"})
-	actual, err := store.Unregister(ctx, node.Node)
+	actual, err := store.Unregister(ctx, node)
 	assert.Nil(t, err)
 	assert.Equal(t, node.GetUid(), actual.GetUid())
 	assert.NotEmpty(t, actual.GetDeletedAt())
@@ -126,7 +126,7 @@ func TestStore_Search__Found(t *testing.T) {
 	node3, err := store.Register(ctx, &Node{Name: "web.srv", Address: "tcp://localhost:3456"})
 	actual, err := store.Search(ctx, &SearchReq{Name: "web.srv"})
 	assert.Nil(t, err)
-	assert.ElementsMatch(t, []*ExpiryNode{node1, node3}, actual)
+	assert.ElementsMatch(t, []*Node{node1, node3}, actual.GetNodes())
 }
 
 func TestStore_Search__all_nodes(t *testing.T) {
@@ -138,5 +138,5 @@ func TestStore_Search__all_nodes(t *testing.T) {
 	node3, err := store.Register(ctx, &Node{Name: "web.srv", Address: "tcp://localhost:3456"})
 	actual, err := store.Search(ctx, &SearchReq{Name: "*"})
 	assert.Nil(t, err)
-	assert.ElementsMatch(t, []*ExpiryNode{node1, node2, node3}, actual)
+	assert.ElementsMatch(t, []*Node{node1, node2, node3}, actual.GetNodes())
 }

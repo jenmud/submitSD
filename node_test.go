@@ -12,9 +12,9 @@ func TestExpiryNode__StartExpiryTimer(t *testing.T) {
 		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
 		10*time.Millisecond,
 	)
-	assert.False(t, n.Expired())
+	assert.False(t, n.GetExpired())
 	time.Sleep(20 * time.Millisecond)
-	assert.True(t, n.Expired())
+	assert.True(t, n.GetExpired())
 }
 
 func TestExpiryNode__Expired(t *testing.T) {
@@ -23,7 +23,7 @@ func TestExpiryNode__Expired(t *testing.T) {
 		10*time.Millisecond,
 	)
 	time.Sleep(20 * time.Millisecond)
-	assert.True(t, n.Expired())
+	assert.True(t, n.GetExpired())
 }
 
 func TestExpiryNode__Expired__not_expired(t *testing.T) {
@@ -32,7 +32,7 @@ func TestExpiryNode__Expired__not_expired(t *testing.T) {
 		10*time.Millisecond,
 	)
 	time.Sleep(5 * time.Millisecond)
-	assert.False(t, n.Expired())
+	assert.False(t, n.GetExpired())
 }
 
 func TestExpiryNode__Expire(t *testing.T) {
@@ -42,9 +42,9 @@ func TestExpiryNode__Expire(t *testing.T) {
 	)
 
 	time.Sleep(1 * time.Second)
-	assert.False(t, n.Expired())
+	assert.False(t, n.GetExpired())
 	n.Expire()
-	assert.True(t, n.Expired())
+	assert.True(t, n.GetExpired())
 }
 
 func TestExpiryNode__Expire_already_expired(t *testing.T) {
@@ -56,7 +56,7 @@ func TestExpiryNode__Expire_already_expired(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	n.Expire()
 	n.Expire()
-	assert.True(t, n.Expired())
+	assert.True(t, n.GetExpired())
 }
 
 func TestExpiryNode__Reset(t *testing.T) {
@@ -72,17 +72,17 @@ func TestExpiryNode__Reset(t *testing.T) {
 	// before checking it expired.
 	n.Reset(20 * time.Millisecond)
 	time.Sleep(10 * time.Millisecond)
-	assert.False(t, n.Expired())
+	assert.False(t, n.GetExpired())
 
 	// Do the reset test again to make sure the reset is working
 	n.Reset(20 * time.Millisecond)
 	time.Sleep(10 * time.Millisecond)
-	assert.False(t, n.Expired())
+	assert.False(t, n.GetExpired())
 
 	// now wait till the node has expired
 	// and check that the expiry timer still expires the node
 	time.Sleep(1 * time.Second)
-	assert.True(t, n.Expired())
+	assert.True(t, n.GetExpired())
 }
 
 func TestExpiryNode__Close(t *testing.T) {
@@ -93,5 +93,5 @@ func TestExpiryNode__Close(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 	n.Close()
-	assert.True(t, n.Expired())
+	assert.True(t, n.GetExpired())
 }

@@ -27,7 +27,7 @@ type Store struct {
 }
 
 // Register registers a new node.
-func (s *Store) Register(ctx context.Context, n *Node) (*ExpiryNode, error) {
+func (s *Store) Register(ctx context.Context, n *Node) (*Node, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -47,9 +47,9 @@ func (s *Store) Register(ctx context.Context, n *Node) (*ExpiryNode, error) {
 	*/
 	if xn, ok := s.reg[n.GetUid()]; ok {
 		xn.Reset(expiry)
-		logrus.Infof("Updating node %q (%s) with %q (%s), expiry: %s", xn.GetName(), xn.GetUid(), n.GetName(), n.GetUid(), expiry)
+		logrus.Infof("Updating node %s with %q (%s), expiry: %s", xn, n.GetName(), n.GetUid(), expiry)
 		s.reg[xn.GetUid()] = xn
-		return xn, nil
+		return xn.Node, nil
 	}
 
 	/*
@@ -60,7 +60,7 @@ func (s *Store) Register(ctx context.Context, n *Node) (*ExpiryNode, error) {
 	resp := NewExpiryNode(n, expiry)
 	logrus.Infof("Adding new node %q (%s), %s", resp.GetName(), resp.GetUid(), resp)
 	s.reg[resp.GetUid()] = resp
-	return resp, nil
+	return resp.Node, nil
 }
 
 // Unregister unregisters a node from the registry.
@@ -81,32 +81,32 @@ func (s *Store) Unregister(ctx context.Context, node *Node) (*UnregisterResp, er
 }
 
 // Get queries and fetches the node from the registry.
-func (s *Store) Get(ctx context.Context, req *GetReq) (*ExpiryNode, error) {
+func (s *Store) Get(ctx context.Context, req *GetReq) (*Node, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
-	if node, ok := s.reg[req.GetUid()]; ok {
-		return node, nil
+	if n, ok := s.reg[req.GetUid()]; ok {
+		return n.Node, nil
 	}
 
 	return nil, fmt.Errorf("Node %s was not found", req.GetUid())
 }
 
 // Search searches the registry for node with matching names.
-func (s *Store) Search(ctx context.Context, req *SearchReq) ([]*ExpiryNode, error) {
+func (s *Store) Search(ctx context.Context, req *SearchReq) (*SearchResp, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
-	nodes := []*ExpiryNode{}
+	nodes := []*Node{}
 
 	for _, node := range s.reg {
 		switch req.GetName() {
 		case "*":
-			nodes = append(nodes, node)
+			nodes = append(nodes, node.Node)
 		case node.GetName():
-			nodes = append(nodes, node)
+			nodes = append(nodes, node.Node)
 		}
 	}
 
-	return nodes, nil
+	return &SearchResp{Nodes: nodes}, nil
 }

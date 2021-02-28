@@ -24,8 +24,11 @@ message Node {
     // If you are registrying a new node with no expiry, the default will be used.
     string expiry_duration = 4 [json_name="expiry"];
 
+    // Expired returns true if the node has expired.
+    bool expired = 5 [json_name="expired"];
+
     // Metadata is any additional information about the node.
-    map<string, string> metadata = 5 [json_name="metadata"];
+    map<string, string> metadata = 6 [json_name="metadata"];
 }
 
 

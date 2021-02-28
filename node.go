@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -16,47 +17,45 @@ func NewExpiryNode(n *Node, d time.Duration) *ExpiryNode {
 // ExpiryNode is `registry.Node` wrapper with an expiry timer.
 type ExpiryNode struct {
 	*Node
-	expired bool
-	timer   *time.Timer
+	timer *time.Timer
 }
 
 // StartExpiryTimer starts the expiry timer.
 func (n *ExpiryNode) StartExpiryTimer(d time.Duration) {
-	logrus.Infof("Node %q (%s) expires in %s", n.GetName(), n.GetUid(), d)
+	logrus.Infof("Node %s expires in %s", n, d)
 	n.timer = time.NewTimer(d)
 	go func() {
 		<-n.timer.C
-		logrus.Infof("Node %q (%s) expired at %s", n.GetName(), n.GetUid(), time.Now().UTC())
-		n.expired = true
+		logrus.Infof("Node %s expired at %s", n, time.Now().UTC())
+		n.Node.Expired = true
 	}()
-}
-
-// Expired returns true is the node is expired.
-func (n *ExpiryNode) Expired() bool {
-	return n.expired
 }
 
 // Expire expires the node.
 func (n *ExpiryNode) Expire() {
-	if !n.expired && !n.timer.Stop() {
-		logrus.Infof("Waiting for node %q (%s) timer to stop", n.GetName(), n.GetUid())
+	if !n.GetExpired() && !n.timer.Stop() {
+		logrus.Infof("Waiting for node %s timer to stop", n)
 		<-n.timer.C
 	}
 
-	logrus.Infof("Node %q (%s) has expired", n.GetName(), n.GetUid())
-	n.expired = true
+	n.Node.Expired = true
+	logrus.Infof("Node %s has expired", n)
 }
 
 // Reset resets the expiry timer.
 func (n *ExpiryNode) Reset(d time.Duration) {
 	n.Expire()
 	n.timer.Reset(d)
-	logrus.Infof("Reset node %q (%s) expiry by %s", n.GetName(), n.GetUid(), d)
-	n.expired = false
+	n.Node.Expired = false
+	logrus.Infof("Reset node %s expiry by %s", n, d)
 }
 
 // Close closes the node by first expiring it.
 func (n *ExpiryNode) Close() error {
 	n.Expire()
 	return nil
+}
+
+func (n *ExpiryNode) String() string {
+	return fmt.Sprintf("%s (uid: %s, expired: %t)", n.GetName(), n.GetUid(), n.GetExpired())
 }
