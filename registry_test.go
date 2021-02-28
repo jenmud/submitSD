@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -16,6 +17,38 @@ func TestStore_Register__New_Node(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEmpty(t, actual.GetUid())
 	assert.Equal(t, "tcp://localhost:1234", actual.GetAddress())
+}
+
+func TestStore_Register__New_Node_short_expiry(t *testing.T) {
+	ctx := context.Background()
+	settings := Settings{ExpiryDuration: DefaultExpiry}
+	store := New(settings)
+	node := &Node{Name: "TestNode", Address: "tcp://localhost:1234", ExpiryDuration: "20ms"}
+	actual, err := store.Register(ctx, node)
+	assert.Nil(t, err)
+	time.Sleep(30 * time.Millisecond)
+	assert.True(t, actual.Expired())
+}
+
+func TestStore_Register__Update_node_expiry(t *testing.T) {
+	ctx := context.Background()
+	settings := Settings{ExpiryDuration: DefaultExpiry}
+	store := New(settings)
+
+	node := &Node{Name: "TestNode", Address: "tcp://localhost:1234", ExpiryDuration: "20ms"}
+	actual, err := store.Register(ctx, node)
+	assert.Nil(t, err)
+	time.Sleep(10 * time.Millisecond)
+
+	updated := &Node{Uid: actual.GetUid(), Name: "TestNode", Address: "tcp://localhost:1234", ExpiryDuration: "30ms"}
+	newNode, err := store.Register(ctx, updated)
+	assert.Nil(t, err)
+	time.Sleep(30 * time.Millisecond)
+	assert.Equal(t, actual.GetUid(), newNode.GetUid())
+	assert.False(t, newNode.Expired())
+
+	time.Sleep(40 * time.Millisecond)
+	assert.True(t, actual.Expired())
 }
 
 func TestStore_Register__Update_Existing_Node(t *testing.T) {

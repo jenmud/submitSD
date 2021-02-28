@@ -58,7 +58,7 @@ func (s *Store) Register(ctx context.Context, n *Node) (*ExpiryNode, error) {
 	*/
 	n.Uid = uuid.New().String()
 	resp := NewExpiryNode(n, expiry)
-	logrus.Infof("Adding new node (%q), %s", resp.GetUid(), resp)
+	logrus.Infof("Adding new node %q (%s), %s", resp.GetName(), resp.GetUid(), resp)
 	s.reg[resp.GetUid()] = resp
 	return resp, nil
 }
