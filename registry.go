@@ -47,7 +47,8 @@ func (s *Store) Register(ctx context.Context, n *Node) (*Node, error) {
 	*/
 	if xn, ok := s.reg[n.GetUid()]; ok {
 		xn.Reset(expiry)
-		logrus.Infof("Updating node %s with %q (%s), expiry: %s", xn, n.GetName(), n.GetUid(), expiry)
+		xd := time.Now().UTC().Add(-expiry)
+		logrus.Infof("Updating node %s with %q (%s), expiry: %s", xn, n.GetName(), n.GetUid(), xd)
 		s.reg[xn.GetUid()] = xn
 		return xn.Node, nil
 	}
@@ -64,7 +65,7 @@ func (s *Store) Register(ctx context.Context, n *Node) (*Node, error) {
 }
 
 // Unregister unregisters a node from the registry.
-func (s *Store) Unregister(ctx context.Context, node *Node) (*UnregisterResp, error) {
+func (s *Store) Unregister(ctx context.Context, node *Node) (*Node, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -73,8 +74,9 @@ func (s *Store) Unregister(ctx context.Context, node *Node) (*UnregisterResp, er
 	}
 
 	if n, ok := s.reg[node.GetUid()]; ok {
+		n.Expire()
 		delete(s.reg, node.GetUid())
-		return &UnregisterResp{Uid: n.GetUid(), DeletedAt: time.Now().UTC().Format(time.RFC3339)}, nil
+		return n.Node, nil
 	}
 
 	return nil, fmt.Errorf("Node %s was not found", node.GetUid())

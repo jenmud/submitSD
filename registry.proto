@@ -46,16 +46,6 @@ message SearchResp {
 }
 
 
-// UnregisterResp is a message about the node that was removed.
-message UnregisterResp {
-    // Uid of the node that was unregistered.
-    string uid = 1 [json_name="uid"];
-
-    // DeletedAt is the datetime when the node was unregistered in RFC3339 format UTC.
-    string deleted_at = 2 [json_name="deleted_at"];
-}
-
-
 // GetReq is a request used for fetching a registered node.
 message GetReq {
     // Uid is the unique identifier of a node.
@@ -71,7 +61,7 @@ service RegistryService {
 
     // Unregister unregisters a node from the registry.
     // Note that the `UID` is required else a error is returned.
-    rpc Unregister(Node) returns (UnregisterResp);
+    rpc Unregister(Node) returns (Node);
 
     // Search searchs the registry for nodes.
     // If `name` is `*`, then all nodes are returned.`

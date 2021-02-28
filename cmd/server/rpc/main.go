@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"net"
+	"time"
 
 	"github.com/jenmud/registry"
 	"github.com/sirupsen/logrus"
@@ -11,7 +12,7 @@ import (
 )
 
 func main() {
-	name := flag.String("service-name", "registry.srv", "Serivice registry name.")
+	name := flag.String("service-name", "registry.srv", "Service registry name.")
 	addr := flag.String("addr", ":8000", "Address to listen and accept client connections.")
 	expiry := flag.Duration("expiry-duration", registry.DefaultExpiry, "Default node expiry duration.")
 	flag.Parse()
@@ -28,6 +29,16 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
+
+	// Run a background updating worker
+	go func() {
+		xd := *expiry - time.Second
+		ticker := time.NewTicker(xd)
+		for {
+			<-ticker.C
+			reg.Register(context.Background(), node)
+		}
+	}()
 
 	registry.RegisterRegistryServiceServer(srv, reg)
 

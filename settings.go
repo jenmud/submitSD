@@ -3,7 +3,7 @@ package registry
 import "time"
 
 // DefaultExpiry is a default node expiry duration.
-const DefaultExpiry = time.Second
+const DefaultExpiry = 5 * time.Second
 
 // Settings are setting use by the Registry service.
 type Settings struct {

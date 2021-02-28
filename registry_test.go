@@ -43,7 +43,7 @@ func TestStore_Register__Update_node_expiry(t *testing.T) {
 	updated := &Node{Uid: actual.GetUid(), Name: "TestNode", Address: "tcp://localhost:1234", ExpiryDuration: "30ms"}
 	newNode, err := store.Register(ctx, updated)
 	assert.Nil(t, err)
-	time.Sleep(30 * time.Millisecond)
+	time.Sleep(28 * time.Millisecond)
 	assert.Equal(t, actual.GetUid(), newNode.GetUid())
 	assert.False(t, newNode.GetExpired())
 
@@ -63,15 +63,36 @@ func TestStore_Register__Update_Existing_Node(t *testing.T) {
 	assert.Equal(t, "udp://localhost:1234", actual.GetAddress())
 }
 
+func TestStore_Unregister__Existing_node_expire(t *testing.T) {
+	ctx := context.Background()
+	settings := Settings{ExpiryDuration: DefaultExpiry}
+	store := New(settings)
+
+	node, err := store.Register(ctx, &Node{ExpiryDuration: "1m", Address: "tcp://localhost:1234"})
+	assert.False(t, node.GetExpired())
+
+	actual, err := store.Unregister(ctx, node)
+	assert.Nil(t, err)
+	assert.True(t, actual.GetExpired())
+	assert.Equal(t, node.GetUid(), actual.GetUid())
+
+	n, err := store.Get(ctx, &GetReq{Uid: node.GetUid()})
+	assert.Nil(t, n)
+	assert.NotNil(t, err)
+}
+
 func TestStore_Unregister__Existing_node(t *testing.T) {
 	ctx := context.Background()
 	settings := Settings{ExpiryDuration: DefaultExpiry}
 	store := New(settings)
+
 	node, err := store.Register(ctx, &Node{Address: "tcp://localhost:1234"})
+
 	actual, err := store.Unregister(ctx, node)
 	assert.Nil(t, err)
 	assert.Equal(t, node.GetUid(), actual.GetUid())
-	assert.NotEmpty(t, actual.GetDeletedAt())
+	assert.True(t, actual.GetExpired())
+
 	n, err := store.Get(ctx, &GetReq{Uid: node.GetUid()})
 	assert.Nil(t, n)
 	assert.NotNil(t, err)

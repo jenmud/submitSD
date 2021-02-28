@@ -23,7 +23,7 @@ type RegistryServiceClient interface {
 	Register(ctx context.Context, in *Node, opts ...grpc.CallOption) (*Node, error)
 	// Unregister unregisters a node from the registry.
 	// Note that the `UID` is required else a error is returned.
-	Unregister(ctx context.Context, in *Node, opts ...grpc.CallOption) (*UnregisterResp, error)
+	Unregister(ctx context.Context, in *Node, opts ...grpc.CallOption) (*Node, error)
 	// Search searchs the registry for nodes.
 	// If `name` is `*`, then all nodes are returned.`
 	Search(ctx context.Context, in *SearchReq, opts ...grpc.CallOption) (*SearchResp, error)
@@ -48,8 +48,8 @@ func (c *registryServiceClient) Register(ctx context.Context, in *Node, opts ...
 	return out, nil
 }
 
-func (c *registryServiceClient) Unregister(ctx context.Context, in *Node, opts ...grpc.CallOption) (*UnregisterResp, error) {
-	out := new(UnregisterResp)
+func (c *registryServiceClient) Unregister(ctx context.Context, in *Node, opts ...grpc.CallOption) (*Node, error) {
+	out := new(Node)
 	err := c.cc.Invoke(ctx, "/RegistryService/Unregister", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ type RegistryServiceServer interface {
 	Register(context.Context, *Node) (*Node, error)
 	// Unregister unregisters a node from the registry.
 	// Note that the `UID` is required else a error is returned.
-	Unregister(context.Context, *Node) (*UnregisterResp, error)
+	Unregister(context.Context, *Node) (*Node, error)
 	// Search searchs the registry for nodes.
 	// If `name` is `*`, then all nodes are returned.`
 	Search(context.Context, *SearchReq) (*SearchResp, error)
@@ -100,7 +100,7 @@ type UnimplementedRegistryServiceServer struct {
 func (UnimplementedRegistryServiceServer) Register(context.Context, *Node) (*Node, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
 }
-func (UnimplementedRegistryServiceServer) Unregister(context.Context, *Node) (*UnregisterResp, error) {
+func (UnimplementedRegistryServiceServer) Unregister(context.Context, *Node) (*Node, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unregister not implemented")
 }
 func (UnimplementedRegistryServiceServer) Search(context.Context, *SearchReq) (*SearchResp, error) {

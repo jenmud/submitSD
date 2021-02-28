@@ -44,7 +44,11 @@ func (n *ExpiryNode) Expire() {
 
 // Reset resets the expiry timer.
 func (n *ExpiryNode) Reset(d time.Duration) {
-	n.Expire()
+	if !n.timer.Stop() {
+		logrus.Infof("Waiting for node %s timer to stop", n)
+		<-n.timer.C
+	}
+
 	n.timer.Reset(d)
 	n.Node.Expired = false
 	logrus.Infof("Reset node %s expiry by %s", n, d)
@@ -57,5 +61,5 @@ func (n *ExpiryNode) Close() error {
 }
 
 func (n *ExpiryNode) String() string {
-	return fmt.Sprintf("%s (uid: %s, expired: %t)", n.GetName(), n.GetUid(), n.GetExpired())
+	return fmt.Sprintf("%s (uid: %s)", n.GetName(), n.GetUid())
 }
