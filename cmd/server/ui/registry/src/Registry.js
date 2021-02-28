@@ -30,13 +30,14 @@ export class RegistryRow extends Component {
 
     render() {
         return (
-            <Table.Row id={this.props.uid}>
+            <Table.Row id={this.props.uid} negative={this.props.expired}>
                 <Table.Cell collapsing>
-                    <Popup content='Disble/Expire node' trigger={<Checkbox slider value='enabled' checked={this.state.value === 'enabled'} onChange={this.handleChange} />} />
+                    <Popup content='Expire and remove node' trigger={<Checkbox slider value='enabled' checked={this.state.value === 'enabled'} onChange={this.handleChange} />} />
                 </Table.Cell>
                 <Table.Cell disabled={this.state.value === 'disabled'}>{this.props.uid}</Table.Cell>
                 <Table.Cell disabled={this.state.value === 'disabled'}>{this.props.name}</Table.Cell>
                 <Table.Cell disabled={this.state.value === 'disabled'}>{this.props.address}</Table.Cell>
+                <Table.Cell disabled={this.state.value === 'disabled'}>{this.props.expiry}</Table.Cell>
             </Table.Row>
         )
     }
@@ -62,7 +63,7 @@ export class Registry extends Component {
                 let rows = []
 
                 json.nodes.forEach(node => {
-                    rows.push(<RegistryRow key={node.uid} service={this.props.service} uid={node.uid} name={node.name} address={node.address} />)
+                    rows.push(<RegistryRow key={node.uid} service={this.props.service} uid={node.uid} name={node.name} address={node.address} expiry={node.expiry} expired={node.expired} />)
                 });
 
                 return rows
@@ -78,13 +79,14 @@ export class Registry extends Component {
             Render the table with all the services that we received from the Restful endpoint.
         */
         return <div>
-            <Table id="registry-table" celled color="blue" striped textAlign="left" columns="3" definition compact>
+            <Table id="registry-table" celled striped definition compact>
                 <Table.Header>
                     <Table.Row>
-                        <Table.HeaderCell>Disable/Expire</Table.HeaderCell>
+                        <Table.HeaderCell collapsing >Expire/Remove</Table.HeaderCell>
                         <Table.HeaderCell>UID</Table.HeaderCell>
                         <Table.HeaderCell>Name</Table.HeaderCell>
                         <Table.HeaderCell>Address</Table.HeaderCell>
+                        <Table.HeaderCell>Expiry UTC</Table.HeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>

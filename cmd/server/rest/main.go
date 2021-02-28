@@ -100,6 +100,7 @@ func main() {
 	name := flag.String("service-name", "registry.rest.srv", "Service registry name.")
 	addr := flag.String("addr", ":8080", "Address to listen and accept client connections.")
 	srv := flag.String("registry", ":8000", "Registry service to connect to.")
+	expiry := flag.String("expire-duration", "5s", "Node expiry duration")
 	flag.Parse()
 
 	listener, err := net.Listen("tcp", *addr)
@@ -127,11 +128,26 @@ func main() {
 
 	app.Use(cors.New(cors.ConfigDefault))
 
-	node := &registry.Node{Name: *name, Address: listener.Addr().Network() + "://" + listener.Addr().String()}
+	node := &registry.Node{Name: *name, Address: listener.Addr().Network() + "://" + listener.Addr().String(), ExpiryDuration: *expiry}
 	rnode, err := client.Register(context.Background(), node)
 	if err != nil {
 		logrus.Fatalf("Error registrying node with registry service %s: %s", *srv, err)
 	}
+
+	// Run a background updating worker
+	go func() {
+		d, err := time.ParseDuration(*expiry)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+
+		xd := d - time.Second
+		ticker := time.NewTicker(xd)
+		for {
+			<-ticker.C
+			client.Register(context.Background(), node)
+		}
+	}()
 
 	defer client.Unregister(context.Background(), rnode)
 	logrus.Infof("REST service (%s, %s) is listening and accepting client connections on %s", rnode.GetName(), rnode.GetUid(), listener.Addr())

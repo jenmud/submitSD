@@ -47,8 +47,7 @@ func (s *Store) Register(ctx context.Context, n *Node) (*Node, error) {
 	*/
 	if xn, ok := s.reg[n.GetUid()]; ok {
 		xn.Reset(expiry)
-		xd := time.Now().UTC().Add(-expiry)
-		logrus.Infof("Updating node %s with %q (%s), expiry: %s", xn, n.GetName(), n.GetUid(), xd)
+		logrus.Infof("Updating node %s with %q (%s), expiry: %s", xn, n.GetName(), n.GetUid(), xn.GetExpiry())
 		s.reg[xn.GetUid()] = xn
 		return xn.Node, nil
 	}

@@ -27,8 +27,11 @@ message Node {
     // Expired returns true if the node has expired.
     bool expired = 5 [json_name="expired"];
 
+    // Expiry returns the expiry date time in UTC RFC333 format
+    string expiry = 6 [json_name="expiry"];
+
     // Metadata is any additional information about the node.
-    map<string, string> metadata = 6 [json_name="metadata"];
+    map<string, string> metadata = 7 [json_name="metadata"];
 }
 
 

@@ -22,7 +22,8 @@ type ExpiryNode struct {
 
 // StartExpiryTimer starts the expiry timer.
 func (n *ExpiryNode) StartExpiryTimer(d time.Duration) {
-	logrus.Infof("Node %s expires in %s", n, d)
+	n.Node.Expiry = time.Now().UTC().Add(d).Format(time.RFC3339)
+	logrus.Infof("Node %s expires at %s", n, n.Node.Expiry)
 	n.timer = time.NewTimer(d)
 	go func() {
 		<-n.timer.C
@@ -51,7 +52,8 @@ func (n *ExpiryNode) Reset(d time.Duration) {
 
 	n.timer.Reset(d)
 	n.Node.Expired = false
-	logrus.Infof("Reset node %s expiry by %s", n, d)
+	n.Node.Expiry = time.Now().UTC().Add(d).Format(time.RFC3339)
+	logrus.Infof("Reset node %s new expiry %s", n, n.Node.GetExpiry())
 }
 
 // Close closes the node by first expiring it.
