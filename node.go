@@ -45,12 +45,17 @@ func (n *ExpiryNode) watcher() {
 			n.Node.Expired = true
 			n.callback(n)
 			return
+		default:
 		}
 	}
 }
 
 // Expire expires the node.
 func (n *ExpiryNode) Expire() {
+	if n.Node.GetExpired() {
+		return
+	}
+
 	n.timer.Stop()
 	n.expired <- time.Now()
 }
