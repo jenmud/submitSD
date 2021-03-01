@@ -8,8 +8,8 @@ import (
 )
 
 // NewExpiryNode returns a new expiry node.
-func NewExpiryNode(n *Node, d time.Duration) *ExpiryNode {
-	xn := &ExpiryNode{Node: n}
+func NewExpiryNode(n *Node, d time.Duration, f ExpiryCallback) *ExpiryNode {
+	xn := &ExpiryNode{Node: n, callback: f, expired: make(chan time.Time)}
 	xn.StartExpiryTimer(d)
 	return xn
 }
@@ -17,48 +17,57 @@ func NewExpiryNode(n *Node, d time.Duration) *ExpiryNode {
 // ExpiryNode is `registry.Node` wrapper with an expiry timer.
 type ExpiryNode struct {
 	*Node
-	timer *time.Timer
+	callback ExpiryCallback
+	timer    *time.Ticker
+	expired  chan time.Time
 }
 
 // StartExpiryTimer starts the expiry timer.
 func (n *ExpiryNode) StartExpiryTimer(d time.Duration) {
-	n.Node.Expiry = time.Now().UTC().Add(d).Format(time.RFC3339)
-	logrus.Infof("Node %s expires at %s", n, n.Node.Expiry)
-	n.timer = time.NewTimer(d)
-	go func() {
-		<-n.timer.C
-		logrus.Infof("Node %s expired at %s", n, time.Now().UTC())
-		n.Node.Expired = true
-	}()
+	now := time.Now().UTC()
+	n.Node.Expiry = now.Add(d).Format(time.RFC3339)
+	logrus.Infof("Node %s started at %s and expires at %s (duration: %s)", n, now, n.Node.Expiry, d)
+	n.timer = time.NewTicker(d)
+	go n.watcher()
+}
+
+func (n *ExpiryNode) watcher() {
+	for {
+		select {
+		case dt := <-n.expired:
+			logrus.Infof("Node %s forcefully expired at %s", n, dt.UTC())
+			n.Node.Expired = true
+			n.timer.Stop()
+			n.callback(n)
+			return
+		case dt := <-n.timer.C:
+			logrus.Infof("Node %s timer expired at %s", n, dt.UTC())
+			n.Node.Expired = true
+			n.callback(n)
+			return
+		}
+	}
 }
 
 // Expire expires the node.
 func (n *ExpiryNode) Expire() {
-	if !n.GetExpired() && !n.timer.Stop() {
-		logrus.Infof("Waiting for node %s timer to stop", n)
-		<-n.timer.C
-	}
-
-	n.Node.Expired = true
-	logrus.Infof("Node %s has expired", n)
+	n.timer.Stop()
+	n.expired <- time.Now()
 }
 
 // Reset resets the expiry timer.
 func (n *ExpiryNode) Reset(d time.Duration) {
-	if !n.timer.Stop() {
-		logrus.Infof("Waiting for node %s timer to stop", n)
-		<-n.timer.C
-	}
-
 	n.timer.Reset(d)
+	oldExpiry := n.Node.Expiry
 	n.Node.Expired = false
 	n.Node.Expiry = time.Now().UTC().Add(d).Format(time.RFC3339)
-	logrus.Infof("Reset node %s new expiry %s", n, n.Node.GetExpiry())
+	logrus.Infof("Reset node %s expiry %s -> %s", n, oldExpiry, n.Node.GetExpiry())
 }
 
 // Close closes the node by first expiring it.
 func (n *ExpiryNode) Close() error {
 	n.Expire()
+	close(n.expired)
 	return nil
 }
 

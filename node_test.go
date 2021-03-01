@@ -11,25 +11,63 @@ func TestExpiryNode__StartExpiryTimer(t *testing.T) {
 	n := NewExpiryNode(
 		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
 		10*time.Millisecond,
+		NoOptExpriyCallback,
 	)
 	assert.False(t, n.GetExpired())
 	time.Sleep(20 * time.Millisecond)
 	assert.True(t, n.GetExpired())
 }
 
+func TestExpiryNode__StartExpiryTimer_callback_called(t *testing.T) {
+	var called bool
+
+	n := NewExpiryNode(
+		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
+		10*time.Millisecond,
+		func(node *ExpiryNode) error {
+			called = true
+			return nil
+		},
+	)
+
+	assert.False(t, n.GetExpired())
+	time.Sleep(20 * time.Millisecond)
+	assert.True(t, n.GetExpired())
+	assert.True(t, called)
+}
+
 func TestExpiryNode__Expired(t *testing.T) {
 	n := NewExpiryNode(
 		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
 		10*time.Millisecond,
+		NoOptExpriyCallback,
 	)
 	time.Sleep(20 * time.Millisecond)
 	assert.True(t, n.GetExpired())
+}
+
+func TestExpiryNode__Expired_callback_called(t *testing.T) {
+	var called bool
+
+	n := NewExpiryNode(
+		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
+		10*time.Millisecond,
+		func(node *ExpiryNode) error {
+			called = true
+			return nil
+		},
+	)
+
+	time.Sleep(20 * time.Millisecond)
+	assert.True(t, n.GetExpired())
+	assert.True(t, called)
 }
 
 func TestExpiryNode__Expired__not_expired(t *testing.T) {
 	n := NewExpiryNode(
 		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
 		10*time.Millisecond,
+		NoOptExpriyCallback,
 	)
 	time.Sleep(5 * time.Millisecond)
 	assert.False(t, n.GetExpired())
@@ -39,6 +77,7 @@ func TestExpiryNode__Expire(t *testing.T) {
 	n := NewExpiryNode(
 		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
 		time.Minute,
+		NoOptExpriyCallback,
 	)
 
 	time.Sleep(1 * time.Second)
@@ -51,6 +90,7 @@ func TestExpiryNode__Expire_already_expired(t *testing.T) {
 	n := NewExpiryNode(
 		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
 		time.Minute,
+		NoOptExpriyCallback,
 	)
 
 	time.Sleep(1 * time.Second)
@@ -63,6 +103,7 @@ func TestExpiryNode__Reset(t *testing.T) {
 	n := NewExpiryNode(
 		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
 		20*time.Millisecond,
+		NoOptExpriyCallback,
 	)
 
 	// sleep for a short period
@@ -89,9 +130,30 @@ func TestExpiryNode__Close(t *testing.T) {
 	n := NewExpiryNode(
 		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
 		20*time.Millisecond,
+		NoOptExpriyCallback,
 	)
 
 	time.Sleep(10 * time.Millisecond)
 	n.Close()
 	assert.True(t, n.GetExpired())
+}
+
+func TestExpiryNode__Close_callback_called(t *testing.T) {
+	var called bool
+
+	n := NewExpiryNode(
+		&Node{Uid: "abc123", Name: "TestNode", Address: "0.0.0.0:8000"},
+		20*time.Millisecond,
+		func(node *ExpiryNode) error {
+			called = true
+			return nil
+		},
+	)
+
+	time.Sleep(10 * time.Millisecond)
+
+	err := n.Close()
+	assert.Nil(t, err)
+	assert.True(t, n.GetExpired())
+	assert.True(t, called)
 }

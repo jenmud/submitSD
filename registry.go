@@ -28,9 +28,6 @@ type Store struct {
 
 // Register registers a new node.
 func (s *Store) Register(ctx context.Context, n *Node) (*Node, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	// parse the expiry else use the default
 	expiry := DefaultExpiry
 	if n.GetExpiryDuration() != "" {
@@ -48,7 +45,9 @@ func (s *Store) Register(ctx context.Context, n *Node) (*Node, error) {
 	if xn, ok := s.reg[n.GetUid()]; ok {
 		xn.Reset(expiry)
 		logrus.Infof("Updating node %s with %q (%s), expiry: %s", xn, n.GetName(), n.GetUid(), xn.GetExpiry())
+		s.lock.Lock()
 		s.reg[xn.GetUid()] = xn
+		s.lock.Unlock()
 		return xn.Node, nil
 	}
 
@@ -57,9 +56,22 @@ func (s *Store) Register(ctx context.Context, n *Node) (*Node, error) {
 		to the registry.
 	*/
 	n.Uid = uuid.New().String()
-	resp := NewExpiryNode(n, expiry)
+
+	resp := NewExpiryNode(
+		n, expiry, func(n *ExpiryNode) error {
+			logrus.Infof("Calling callback - %s", n)
+			_, err := s.Unregister(context.TODO(), n.Node)
+			if err != nil {
+				logrus.Errorf("Error unregistering node %s: %s", n, err)
+			}
+			return err
+		},
+	)
+
+	s.lock.Lock()
 	logrus.Infof("Adding new node %q (%s), %s", resp.GetName(), resp.GetUid(), resp)
 	s.reg[resp.GetUid()] = resp
+	s.lock.Unlock()
 	return resp.Node, nil
 }
 
@@ -73,7 +85,8 @@ func (s *Store) Unregister(ctx context.Context, node *Node) (*Node, error) {
 	}
 
 	if n, ok := s.reg[node.GetUid()]; ok {
-		n.Expire()
+		logrus.Infof("Unregistering node %s at %s", n, time.Now().UTC())
+		n.Close()
 		delete(s.reg, node.GetUid())
 		return n.Node, nil
 	}
