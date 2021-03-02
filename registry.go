@@ -58,7 +58,7 @@ func (s *Store) Register(ctx context.Context, n *Node) (*Node, error) {
 	n.Uid = uuid.New().String()
 
 	resp := NewExpiryNode(
-		n, expiry, func(n *ExpiryNode) error {
+		n, func(n *ExpiryNode) error {
 			logrus.Infof("Calling callback - %s", n)
 			_, err := s.Unregister(context.TODO(), n.Node)
 			if err != nil {
@@ -71,6 +71,7 @@ func (s *Store) Register(ctx context.Context, n *Node) (*Node, error) {
 	s.lock.Lock()
 	logrus.Infof("Adding new node %q (%s), %s", resp.GetName(), resp.GetUid(), resp)
 	s.reg[resp.GetUid()] = resp
+	resp.Start(expiry)
 	s.lock.Unlock()
 	return resp.Node, nil
 }
