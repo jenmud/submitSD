@@ -38,7 +38,7 @@ func main() {
 			<-ticker.C
 			n, err := reg.Register(context.Background(), node)
 			if err != nil {
-				logrus.Errorf("Error updating node %s", n, err)
+				logrus.Errorf("Error updating node %s: %s", n, err)
 				continue
 			}
 			node = n

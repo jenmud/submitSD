@@ -18,3 +18,7 @@ proto:
 
 build: proto
 	go build -o builds/rpc-registry cmd/server/rpc
+
+
+test:
+	go test -timeout 30s -cover -race ./...
