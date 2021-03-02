@@ -35,19 +35,19 @@ func TestStore_Register__Update_node_expiry(t *testing.T) {
 	settings := Settings{ExpiryDuration: DefaultExpiry}
 	store := New(settings)
 
-	node := &Node{Name: "TestNode", Address: "tcp://localhost:1234", ExpiryDuration: "20ms"}
+	node := &Node{Name: "TestNode", Address: "tcp://localhost:1234", ExpiryDuration: "1s"}
 	actual, err := store.Register(ctx, node)
 	assert.Nil(t, err)
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(1 / 2 * time.Second)
 
-	updated := &Node{Uid: actual.GetUid(), Name: "TestNode", Address: "tcp://localhost:1234", ExpiryDuration: "30ms"}
+	updated := &Node{Uid: actual.GetUid(), Name: "TestNode", Address: "tcp://localhost:1234", ExpiryDuration: "2s"}
 	newNode, err := store.Register(ctx, updated)
 	assert.Nil(t, err)
-	time.Sleep(28 * time.Millisecond)
+	time.Sleep(time.Second)
 	assert.Equal(t, actual.GetUid(), newNode.GetUid())
 	assert.False(t, newNode.GetExpired())
 
-	time.Sleep(40 * time.Millisecond)
+	time.Sleep(2 * time.Second)
 	assert.True(t, actual.GetExpired())
 }
 
