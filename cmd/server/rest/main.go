@@ -145,7 +145,12 @@ func main() {
 		ticker := time.NewTicker(xd)
 		for {
 			<-ticker.C
-			client.Register(context.Background(), node)
+			n, err := client.Register(context.Background(), rnode)
+			if err != nil {
+				logrus.Errorf("Error updating node %s: %s", n, err)
+				continue
+			}
+			rnode = n
 		}
 	}()
 
