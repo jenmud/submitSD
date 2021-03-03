@@ -55,19 +55,50 @@ message GetReq {
     string uid = 1 [json_name="uid"];
 }
 
+// HeartbeatReq is a hartbeat pulse to keep a node alive and
+// prevent it from expiring.
+message HeartbeatReq {
+    // Uid is the uid of the node that you are sending the heartbeat.
+    string uid = 1 [json_name="uid"];
+
+    // Duration is how long the node will stay alive before expecting
+    // next heartbeat pulse else the node will expire. If this field
+    // is omitted, then the default expiry duration will be used. 
+    string duration = 2 [json_name="duration"];
+}
+
+// HeartbeatResp is the heartbeat response with the new expiry datetime
+// in UTC RFC3339 format.
+message HeartbeatResp {
+    // Uid is the uid of the node that you are sending the heartbeat.
+    string uid = 1 [json_name="uid"];
+
+    // Expiry is the new expiry datetime in UTC RFC3339 format.
+    string expiry = 2 [json_name="expiry"];
+}
+
 
 // RegistryService is a RPC service.
 service RegistryService {
-    // Register registers a node with the registry.
-    // If `UID` is provided and exists, then the node will be updated with the new node.
+    // Register registers a new node with the registry.
+    // The `UID` field is ignored with this request.
     rpc Register(Node) returns (Node);
 
     // Unregister unregisters a node from the registry.
-    // Note that the `UID` is required else a error is returned.
+    // Note that the `UID` field is required else a error is returned.
     rpc Unregister(Node) returns (Node);
 
+    // Heartbeat does a single heartbeat update resetting the expiry.
+    // Note that the `UID` field is required else a error is returned.
+    rpc Heartbeat(HeartbeatReq) returns (HeartbeatResp);
+
+    // Heartbeats opens a bidirectional heartbeat stream used for
+    // continues heartbeat updates.
+    // Note that the `UID` field is required else a error is returned.
+    rpc Heartbeats(stream HeartbeatReq) returns (stream HeartbeatResp);
+
     // Search searchs the registry for nodes.
-    // If `name` is `*`, then all nodes are returned.`
+    // If the `Name` field is `*`, then all nodes are returned.`
     rpc Search(SearchReq) returns (SearchResp);
 
     // Get returns the node by `UID`.

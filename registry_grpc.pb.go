@@ -18,14 +18,21 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RegistryServiceClient interface {
-	// Register registers a node with the registry.
-	// If `UID` is provided and exists, then the node will be updated with the new node.
+	// Register registers a new node with the registry.
+	// The `UID` field is ignored with this request.
 	Register(ctx context.Context, in *Node, opts ...grpc.CallOption) (*Node, error)
 	// Unregister unregisters a node from the registry.
-	// Note that the `UID` is required else a error is returned.
+	// Note that the `UID` field is required else a error is returned.
 	Unregister(ctx context.Context, in *Node, opts ...grpc.CallOption) (*Node, error)
+	// Heartbeat does a single heartbeat update resetting the expiry.
+	// Note that the `UID` field is required else a error is returned.
+	Heartbeat(ctx context.Context, in *HeartbeatReq, opts ...grpc.CallOption) (*HeartbeatResp, error)
+	// Heartbeats opens a bidirectional heartbeat stream used for
+	// continues heartbeat updates.
+	// Note that the `UID` field is required else a error is returned.
+	Heartbeats(ctx context.Context, opts ...grpc.CallOption) (RegistryService_HeartbeatsClient, error)
 	// Search searchs the registry for nodes.
-	// If `name` is `*`, then all nodes are returned.`
+	// If the `Name` field is `*`, then all nodes are returned.`
 	Search(ctx context.Context, in *SearchReq, opts ...grpc.CallOption) (*SearchResp, error)
 	// Get returns the node by `UID`.
 	Get(ctx context.Context, in *GetReq, opts ...grpc.CallOption) (*Node, error)
@@ -57,6 +64,46 @@ func (c *registryServiceClient) Unregister(ctx context.Context, in *Node, opts .
 	return out, nil
 }
 
+func (c *registryServiceClient) Heartbeat(ctx context.Context, in *HeartbeatReq, opts ...grpc.CallOption) (*HeartbeatResp, error) {
+	out := new(HeartbeatResp)
+	err := c.cc.Invoke(ctx, "/RegistryService/Heartbeat", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *registryServiceClient) Heartbeats(ctx context.Context, opts ...grpc.CallOption) (RegistryService_HeartbeatsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RegistryService_ServiceDesc.Streams[0], "/RegistryService/Heartbeats", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &registryServiceHeartbeatsClient{stream}
+	return x, nil
+}
+
+type RegistryService_HeartbeatsClient interface {
+	Send(*HeartbeatReq) error
+	Recv() (*HeartbeatResp, error)
+	grpc.ClientStream
+}
+
+type registryServiceHeartbeatsClient struct {
+	grpc.ClientStream
+}
+
+func (x *registryServiceHeartbeatsClient) Send(m *HeartbeatReq) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *registryServiceHeartbeatsClient) Recv() (*HeartbeatResp, error) {
+	m := new(HeartbeatResp)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *registryServiceClient) Search(ctx context.Context, in *SearchReq, opts ...grpc.CallOption) (*SearchResp, error) {
 	out := new(SearchResp)
 	err := c.cc.Invoke(ctx, "/RegistryService/Search", in, out, opts...)
@@ -79,14 +126,21 @@ func (c *registryServiceClient) Get(ctx context.Context, in *GetReq, opts ...grp
 // All implementations must embed UnimplementedRegistryServiceServer
 // for forward compatibility
 type RegistryServiceServer interface {
-	// Register registers a node with the registry.
-	// If `UID` is provided and exists, then the node will be updated with the new node.
+	// Register registers a new node with the registry.
+	// The `UID` field is ignored with this request.
 	Register(context.Context, *Node) (*Node, error)
 	// Unregister unregisters a node from the registry.
-	// Note that the `UID` is required else a error is returned.
+	// Note that the `UID` field is required else a error is returned.
 	Unregister(context.Context, *Node) (*Node, error)
+	// Heartbeat does a single heartbeat update resetting the expiry.
+	// Note that the `UID` field is required else a error is returned.
+	Heartbeat(context.Context, *HeartbeatReq) (*HeartbeatResp, error)
+	// Heartbeats opens a bidirectional heartbeat stream used for
+	// continues heartbeat updates.
+	// Note that the `UID` field is required else a error is returned.
+	Heartbeats(RegistryService_HeartbeatsServer) error
 	// Search searchs the registry for nodes.
-	// If `name` is `*`, then all nodes are returned.`
+	// If the `Name` field is `*`, then all nodes are returned.`
 	Search(context.Context, *SearchReq) (*SearchResp, error)
 	// Get returns the node by `UID`.
 	Get(context.Context, *GetReq) (*Node, error)
@@ -102,6 +156,12 @@ func (UnimplementedRegistryServiceServer) Register(context.Context, *Node) (*Nod
 }
 func (UnimplementedRegistryServiceServer) Unregister(context.Context, *Node) (*Node, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unregister not implemented")
+}
+func (UnimplementedRegistryServiceServer) Heartbeat(context.Context, *HeartbeatReq) (*HeartbeatResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Heartbeat not implemented")
+}
+func (UnimplementedRegistryServiceServer) Heartbeats(RegistryService_HeartbeatsServer) error {
+	return status.Errorf(codes.Unimplemented, "method Heartbeats not implemented")
 }
 func (UnimplementedRegistryServiceServer) Search(context.Context, *SearchReq) (*SearchResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Search not implemented")
@@ -158,6 +218,50 @@ func _RegistryService_Unregister_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RegistryService_Heartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HeartbeatReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RegistryServiceServer).Heartbeat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/RegistryService/Heartbeat",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RegistryServiceServer).Heartbeat(ctx, req.(*HeartbeatReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RegistryService_Heartbeats_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RegistryServiceServer).Heartbeats(&registryServiceHeartbeatsServer{stream})
+}
+
+type RegistryService_HeartbeatsServer interface {
+	Send(*HeartbeatResp) error
+	Recv() (*HeartbeatReq, error)
+	grpc.ServerStream
+}
+
+type registryServiceHeartbeatsServer struct {
+	grpc.ServerStream
+}
+
+func (x *registryServiceHeartbeatsServer) Send(m *HeartbeatResp) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *registryServiceHeartbeatsServer) Recv() (*HeartbeatReq, error) {
+	m := new(HeartbeatReq)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func _RegistryService_Search_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SearchReq)
 	if err := dec(in); err != nil {
@@ -210,6 +314,10 @@ var RegistryService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RegistryService_Unregister_Handler,
 		},
 		{
+			MethodName: "Heartbeat",
+			Handler:    _RegistryService_Heartbeat_Handler,
+		},
+		{
 			MethodName: "Search",
 			Handler:    _RegistryService_Search_Handler,
 		},
@@ -218,6 +326,13 @@ var RegistryService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RegistryService_Get_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Heartbeats",
+			Handler:       _RegistryService_Heartbeats_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "registry.proto",
 }
