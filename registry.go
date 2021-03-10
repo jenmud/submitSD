@@ -14,18 +14,20 @@ import (
 // New returns a new empty registry.
 func New(settings Settings) *Store {
 	return &Store{
-		settings: settings,
-		reg:      make(map[string]*Node),
-		timers:   make(map[string]*time.Timer),
+		settings:      settings,
+		reg:           make(map[string]*Node),
+		timers:        make(map[string]*time.Timer),
+		eventChannels: make(map[string]chan *EventResp),
 	}
 }
 
 // Store used for storing and querying for nodes.
 type Store struct {
-	lock     sync.RWMutex
-	reg      map[string]*Node
-	timers   map[string]*time.Timer
-	settings Settings
+	lock          sync.RWMutex
+	reg           map[string]*Node
+	timers        map[string]*time.Timer
+	eventChannels map[string]chan *EventResp
+	settings      Settings
 	UnimplementedRegistryServiceServer
 }
 
@@ -64,6 +66,8 @@ func (s *Store) Register(ctx context.Context, node *Node) (*Node, error) {
 	logrus.Infof("Adding new node %q (%s), %s", resp.GetName(), resp.GetUid(), resp)
 	s.reg[resp.GetUid()] = resp
 	s.timers[resp.GetUid()] = time.AfterFunc(expiry, func() { s.remove(resp) })
+
+	s.sendEvent(ctx, &EventResp{Uid: resp.Uid, Event: "register", Datetime: time.Now().UTC().Format(time.RFC3339)})
 	return resp, nil
 }
 
@@ -126,6 +130,8 @@ func (s *Store) Heartbeat(ctx context.Context, req *HeartbeatReq) (*HeartbeatRes
 
 	resp.Uid = node.GetUid()
 	resp.Expiry = node.GetExpiry()
+
+	s.sendEvent(ctx, &EventResp{Uid: resp.Uid, Event: "heartbeat", Datetime: time.Now().UTC().Format(time.RFC3339)})
 	return resp, nil
 }
 
@@ -200,6 +206,7 @@ func (s *Store) Unregister(ctx context.Context, node *Node) (*Node, error) {
 	timer.Stop()
 	delete(s.timers, node.GetUid())
 
+	s.sendEvent(ctx, &EventResp{Uid: node.GetUid(), Event: "unregister", Datetime: time.Now().UTC().Format(time.RFC3339)})
 	return node, nil
 }
 
@@ -234,6 +241,42 @@ func (s *Store) Search(ctx context.Context, req *SearchReq) (*SearchResp, error)
 	return &SearchResp{Nodes: nodes}, nil
 }
 
+func (s *Store) sendEvent(ctx context.Context, event *EventResp) {
+	for key, eventChannel := range s.eventChannels {
+		logrus.Infof("Sending event %s to event channel %q", event, key)
+		eventChannel <- event
+	}
+}
+
+// Events subscribes a client to a stream of events.
+func (s *Store) Events(req *EventReq, stream RegistryService_EventsServer) error {
+	evID := uuid.New().String()
+	eventChan := make(chan *EventResp, 1)
+	s.eventChannels[evID] = eventChan
+	logrus.Infof("Created and registered event channel %q", evID)
+
+	for {
+		select {
+		case event, ok := <-eventChan:
+			if !ok {
+				delete(s.eventChannels, evID)
+				logrus.Infof("Closed %q and unregistered event channel", evID)
+			}
+
+			if event == nil {
+				delete(s.eventChannels, evID)
+				return fmt.Errorf("No event was received or event channel %q was closed", evID)
+			}
+
+			if err := stream.Send(event); err != nil {
+				delete(s.eventChannels, evID)
+				logrus.Errorf("Error sending event to channel %q: %s", evID, err)
+				return err
+			}
+		}
+	}
+}
+
 // Close closes the registry.
 func (s *Store) Close() error {
 	s.lock.RLock()
@@ -246,6 +289,10 @@ func (s *Store) Close() error {
 
 	for _, node := range nodes {
 		s.remove(node)
+	}
+
+	for _, eventChannel := range s.eventChannels {
+		close(eventChannel)
 	}
 
 	return nil

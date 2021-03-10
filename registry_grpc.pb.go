@@ -36,6 +36,8 @@ type RegistryServiceClient interface {
 	Search(ctx context.Context, in *SearchReq, opts ...grpc.CallOption) (*SearchResp, error)
 	// Get returns the node by `UID`.
 	Get(ctx context.Context, in *GetReq, opts ...grpc.CallOption) (*Node, error)
+	// Events provides a stream of event feeds.
+	Events(ctx context.Context, in *EventReq, opts ...grpc.CallOption) (RegistryService_EventsClient, error)
 }
 
 type registryServiceClient struct {
@@ -122,6 +124,38 @@ func (c *registryServiceClient) Get(ctx context.Context, in *GetReq, opts ...grp
 	return out, nil
 }
 
+func (c *registryServiceClient) Events(ctx context.Context, in *EventReq, opts ...grpc.CallOption) (RegistryService_EventsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RegistryService_ServiceDesc.Streams[1], "/RegistryService/Events", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &registryServiceEventsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RegistryService_EventsClient interface {
+	Recv() (*EventResp, error)
+	grpc.ClientStream
+}
+
+type registryServiceEventsClient struct {
+	grpc.ClientStream
+}
+
+func (x *registryServiceEventsClient) Recv() (*EventResp, error) {
+	m := new(EventResp)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // RegistryServiceServer is the server API for RegistryService service.
 // All implementations must embed UnimplementedRegistryServiceServer
 // for forward compatibility
@@ -144,6 +178,8 @@ type RegistryServiceServer interface {
 	Search(context.Context, *SearchReq) (*SearchResp, error)
 	// Get returns the node by `UID`.
 	Get(context.Context, *GetReq) (*Node, error)
+	// Events provides a stream of event feeds.
+	Events(*EventReq, RegistryService_EventsServer) error
 	mustEmbedUnimplementedRegistryServiceServer()
 }
 
@@ -168,6 +204,9 @@ func (UnimplementedRegistryServiceServer) Search(context.Context, *SearchReq) (*
 }
 func (UnimplementedRegistryServiceServer) Get(context.Context, *GetReq) (*Node, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedRegistryServiceServer) Events(*EventReq, RegistryService_EventsServer) error {
+	return status.Errorf(codes.Unimplemented, "method Events not implemented")
 }
 func (UnimplementedRegistryServiceServer) mustEmbedUnimplementedRegistryServiceServer() {}
 
@@ -298,6 +337,27 @@ func _RegistryService_Get_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RegistryService_Events_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(EventReq)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RegistryServiceServer).Events(m, &registryServiceEventsServer{stream})
+}
+
+type RegistryService_EventsServer interface {
+	Send(*EventResp) error
+	grpc.ServerStream
+}
+
+type registryServiceEventsServer struct {
+	grpc.ServerStream
+}
+
+func (x *registryServiceEventsServer) Send(m *EventResp) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // RegistryService_ServiceDesc is the grpc.ServiceDesc for RegistryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -332,6 +392,11 @@ var RegistryService_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _RegistryService_Heartbeats_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "Events",
+			Handler:       _RegistryService_Events_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "registry.proto",

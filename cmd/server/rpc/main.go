@@ -49,7 +49,7 @@ func main() {
 				resp, err := reg.Heartbeat(ctx, &registry.HeartbeatReq{Uid: uid, Duration: expiry.String()})
 				if err != nil {
 					logrus.Errorf("Error sending heartbeat pulse for node %q: %s", uid, err)
-					continue
+					cancel()
 				}
 				logrus.Infof("Node received new heartbeat: %s", resp)
 			}

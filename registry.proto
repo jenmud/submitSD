@@ -77,6 +77,20 @@ message HeartbeatResp {
     string expiry = 2 [json_name="expiry"];
 }
 
+// EventReq subscription for event feeds.
+message EventReq {}
+
+message EventResp {
+    // uid of the node the event is for.
+    string uid = 1 [json_name="uid"];
+
+    // Event that has happened, eg: create, delete, update, touched, etc...
+    string event = 2 [json_name="event"];
+
+    // Datetime when the event happened in UTC RFC3339 format.
+    string datetime = 3 [json_name="datetime"];
+}
+
 
 // RegistryService is a RPC service.
 service RegistryService {
@@ -103,4 +117,7 @@ service RegistryService {
 
     // Get returns the node by `UID`.
     rpc Get(GetReq) returns (Node);
+
+    // Events provides a stream of event feeds.
+    rpc Events(EventReq) returns (stream EventResp);
 }

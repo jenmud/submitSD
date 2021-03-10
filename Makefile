@@ -13,7 +13,7 @@ setup:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
 
 proto:
-	PATH=$(PATH):$(GOPATH)/bin protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative registry.proto
+	PATH=/usr/bin:/usr/local/bin:$(GOPATH)/bin protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative registry.proto
 
 
 build: proto
