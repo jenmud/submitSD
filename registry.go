@@ -16,7 +16,6 @@ func New(settings Settings) *Store {
 	return &Store{
 		settings:      settings,
 		reg:           make(map[string]*Node),
-		timers:        make(map[string]*time.Timer),
 		eventChannels: make(map[string]chan *EventResp),
 	}
 }
@@ -25,7 +24,6 @@ func New(settings Settings) *Store {
 type Store struct {
 	lock          sync.RWMutex
 	reg           map[string]*Node
-	timers        map[string]*time.Timer
 	eventChannels map[string]chan *EventResp
 	settings      Settings
 	UnimplementedRegistryServiceServer
@@ -65,7 +63,6 @@ func (s *Store) Register(ctx context.Context, node *Node) (*Node, error) {
 
 	logrus.Infof("Adding new node %q (%s), %s", resp.GetName(), resp.GetUid(), resp)
 	s.reg[resp.GetUid()] = resp
-	s.timers[resp.GetUid()] = time.AfterFunc(expiry, func() { s.remove(resp) })
 
 	s.sendEvent(ctx, &EventResp{Uid: resp.Uid, Event: "register", Datetime: time.Now().UTC().Format(time.RFC3339)})
 	return resp, nil
@@ -75,23 +72,9 @@ func (s *Store) resetExpiry(node *Node, expiry time.Duration) (*Node, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	/*
-		Fetch the nodes timer to update and reset
-	*/
-	timer, ok := s.timers[node.GetUid()]
-	if !ok {
-		return node, fmt.Errorf("Node with UID %q timer was not found", node.GetUid())
-	}
-
 	newExpiry := time.Now().Add(expiry)
 	logrus.Infof("Resetting node %q expiry to %s", node.GetName(), newExpiry)
 
-	if !timer.Stop() {
-		logrus.Infof("Waiting for node %q timer to stop", node.GetName())
-		<-timer.C
-	}
-
-	timer.Reset(expiry)
 	node.ExpiryDuration = expiry.String()
 	node.Expiry = newExpiry.UTC().Format(time.RFC3339)
 	return node, nil
@@ -165,46 +148,20 @@ func (s *Store) remove(node *Node) error {
 
 	if n, ok := s.reg[node.GetUid()]; ok {
 		logrus.Infof("Removing node %s", n.GetUid())
+		node.Expired = true
 		delete(s.reg, n.GetUid())
+		return nil
 	}
 
-	if timer, ok := s.timers[node.GetUid()]; ok {
-		logrus.Infof("Stopping node %s expiry timer", node.GetUid())
-		timer.Stop()
-		delete(s.timers, node.GetUid())
-	}
-
-	return nil
+	return fmt.Errorf("could not find node %q to unregister", node.GetUid())
 }
 
 // Unregister unregisters a node from the registry.
 func (s *Store) Unregister(ctx context.Context, node *Node) (*Node, error) {
-	if node.GetUid() == "" {
-		return nil, fmt.Errorf("Node UID field is required")
-	}
+	logrus.Infof("Unregistering node %q at %s", node.GetUid(), time.Now().UTC().Format(time.RFC3339))
 
-	/*
-		First find the node and remove it.
-	*/
-	n, ok := s.reg[node.GetUid()]
-	if !ok {
-		return node, fmt.Errorf("Could not find node %q to unregister", node.GetUid())
-	}
-
-	logrus.Infof("Unregistering node %q at %s", n.GetUid(), time.Now().UTC().Format(time.RFC3339))
-	delete(s.reg, node.GetUid())
-
-	/*
-		Find the nodes timer and stop it.
-	*/
-	timer, ok := s.timers[node.GetUid()]
-	if !ok {
-		return node, fmt.Errorf("Could not find node timer %q to unregister", node.GetUid())
-	}
-
-	logrus.Infof("Unregistering node %q timer at %s", node.GetUid(), time.Now().UTC().Format(time.RFC3339))
-	timer.Stop()
-	delete(s.timers, node.GetUid())
+	s.remove(node)
+	node.Expired = true
 
 	s.sendEvent(ctx, &EventResp{Uid: node.GetUid(), Event: "unregister", Datetime: time.Now().UTC().Format(time.RFC3339)})
 	return node, nil
@@ -216,6 +173,8 @@ func (s *Store) Get(ctx context.Context, req *GetReq) (*Node, error) {
 	defer s.lock.RUnlock()
 
 	if n, ok := s.reg[req.GetUid()]; ok {
+		// check that the node has not expired and if so remove it and return a expired error
+		is expired
 		return n, nil
 	}
 
