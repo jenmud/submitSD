@@ -45,6 +45,15 @@ func (s *Store) Register(ctx context.Context, node *Node) (*Node, error) {
 	}
 
 	/*
+		If the node exists and is not expired, update it
+	*/
+	if n, err := s.get(node.GetUid()); err == nil {
+		logrus.Infof("Node %q exists, updating touching it", n)
+		_, err := s.Heartbeat(ctx, &HeartbeatReq{Uid: n.GetUid(), Duration: expiry.String()})
+		return n, err
+	}
+
+	/*
 		If we get to this point, generate a uuid and add to node
 		to the registry.
 	*/

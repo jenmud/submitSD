@@ -38,7 +38,7 @@ func main() {
 
 	// Run a background updating worker
 	go func(ctx context.Context, uid string, expiry time.Duration) {
-		ticker := time.NewTicker(time.Second)
+		ticker := time.NewTicker(4 * time.Second)
 
 		for {
 			select {
