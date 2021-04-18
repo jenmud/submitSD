@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -55,7 +56,7 @@ func (s *Store) Register(ctx context.Context, node *Node) (*Node, error) {
 		Uid:            uuid.New().String(),
 		Name:           node.GetName(),
 		Address:        node.GetAddress(),
-		Expiry:         time.Now().UTC().Format(time.RFC3339),
+		Expiry:         time.Now().Add(expiry).Format(time.RFC3339),
 		ExpiryDuration: expiry.String(),
 		Metadata:       node.GetMetadata(),
 		Expired:        false,
@@ -158,27 +159,55 @@ func (s *Store) remove(node *Node) error {
 
 // Unregister unregisters a node from the registry.
 func (s *Store) Unregister(ctx context.Context, node *Node) (*Node, error) {
-	logrus.Infof("Unregistering node %q at %s", node.GetUid(), time.Now().UTC().Format(time.RFC3339))
+	n, err := s.get(node.GetUid())
+	if err != nil {
+		return nil, err
+	}
 
-	s.remove(node)
-	node.Expired = true
+	logrus.Infof("Unregistering node %q at %s", n.GetUid(), time.Now().UTC().Format(time.RFC3339))
 
-	s.sendEvent(ctx, &EventResp{Uid: node.GetUid(), Event: "unregister", Datetime: time.Now().UTC().Format(time.RFC3339)})
-	return node, nil
+	s.remove(n)
+	n.Expired = true
+
+	s.sendEvent(ctx, &EventResp{Uid: n.GetUid(), Event: "unregister", Datetime: time.Now().UTC().Format(time.RFC3339)})
+	return n, nil
+}
+
+func (s *Store) validate_node(n *Node) error {
+	expiry, err := time.Parse(time.RFC3339, n.GetExpiry())
+	if err != nil {
+		return err
+	}
+
+	if time.Now().UTC().After(expiry) {
+		msg := fmt.Sprintf("Node %q has expired %s ago", n.GetUid(), time.Since(expiry))
+		logrus.Infof(msg)
+
+		if err := s.remove(n); err != nil {
+			return err
+		}
+
+		return errors.New(msg)
+	}
+
+	return nil
+}
+
+func (s *Store) get(uid string) (*Node, error) {
+	s.lock.RLock()
+	n, ok := s.reg[uid]
+	s.lock.RUnlock()
+
+	if ok {
+		return n, s.validate_node(n)
+	}
+
+	return nil, fmt.Errorf("Could not find node with UID %q", uid)
 }
 
 // Get queries and fetches the node from the registry.
 func (s *Store) Get(ctx context.Context, req *GetReq) (*Node, error) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
-	if n, ok := s.reg[req.GetUid()]; ok {
-		// check that the node has not expired and if so remove it and return a expired error
-		is expired
-		return n, nil
-	}
-
-	return nil, fmt.Errorf("Node %s was not found", req.GetUid())
+	return s.get(req.GetUid())
 }
 
 // Search searches the registry for node with matching names.
@@ -189,11 +218,13 @@ func (s *Store) Search(ctx context.Context, req *SearchReq) (*SearchResp, error)
 	nodes := []*Node{}
 
 	for _, node := range s.reg {
-		switch req.GetName() {
-		case "*":
-			nodes = append(nodes, node)
-		case node.GetName():
-			nodes = append(nodes, node)
+		if err := s.validate_node(node); err == nil {
+			switch req.GetName() {
+			case "*":
+				nodes = append(nodes, node)
+			case node.GetName():
+				nodes = append(nodes, node)
+			}
 		}
 	}
 

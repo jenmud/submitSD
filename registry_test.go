@@ -27,10 +27,12 @@ func TestStore_Register__New_Node_short_expiry(t *testing.T) {
 	actual, err := store.Register(ctx, node)
 	assert.Nil(t, err)
 	time.Sleep(30 * time.Millisecond)
-	assert.True(t, actual.GetExpired())
+	node, err = store.Get(ctx, &GetReq{Uid: actual.GetUid()})
+	assert.NotNil(t, err)
+	assert.True(t, node.GetExpired())
 }
 
-func TestStore_Register__Update_node_expiry(t *testing.T) {
+func TestStore_Heartbeat__Update_node_expiry(t *testing.T) {
 	ctx := context.Background()
 	settings := Settings{ExpiryDuration: DefaultExpiry}
 	store := New(settings)
@@ -40,27 +42,15 @@ func TestStore_Register__Update_node_expiry(t *testing.T) {
 	assert.Nil(t, err)
 	time.Sleep(1 / 2 * time.Second)
 
-	updated := &Node{Uid: actual.GetUid(), Name: "TestNode", Address: "tcp://localhost:1234", ExpiryDuration: "2s"}
-	newNode, err := store.Register(ctx, updated)
+	resp, err := store.Heartbeat(ctx, &HeartbeatReq{Uid: actual.GetUid(), Duration: "2s"})
 	assert.Nil(t, err)
 	time.Sleep(time.Second)
-	assert.Equal(t, actual.GetUid(), newNode.GetUid())
-	assert.False(t, newNode.GetExpired())
 
-	time.Sleep(2 * time.Second)
-	assert.True(t, actual.GetExpired())
-}
-
-func TestStore_Register__Update_Existing_Node(t *testing.T) {
-	ctx := context.Background()
-	settings := Settings{ExpiryDuration: DefaultExpiry}
-	store := New(settings)
-	node, err := store.Register(ctx, &Node{Address: "tcp://localhost:1234"})
-	node.Address = "udp://localhost:1234"
-	actual, err := store.Register(ctx, node)
+	updated, err := store.Get(ctx, &GetReq{Uid: actual.GetUid()})
 	assert.Nil(t, err)
-	assert.Equal(t, node.GetUid(), actual.GetUid())
-	assert.Equal(t, "udp://localhost:1234", actual.GetAddress())
+	assert.Equal(t, actual.GetUid(), resp.GetUid())
+	assert.Equal(t, actual.GetUid(), updated.GetUid())
+	assert.False(t, updated.GetExpired())
 }
 
 func TestStore_Unregister__Existing_node(t *testing.T) {
