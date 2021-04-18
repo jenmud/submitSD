@@ -16,15 +16,14 @@ import (
 func New(settings Settings) *Store {
 	return &Store{
 		settings:      settings,
-		reg:           make(map[string]*Node),
+		reg:           new(sync.Map),
 		eventChannels: make(map[string]chan *EventResp),
 	}
 }
 
 // Store used for storing and querying for nodes.
 type Store struct {
-	lock          sync.RWMutex
-	reg           map[string]*Node
+	reg           *sync.Map
 	eventChannels map[string]chan *EventResp
 	settings      Settings
 	UnimplementedRegistryServiceServer
@@ -32,9 +31,6 @@ type Store struct {
 
 // Register registers a new node.
 func (s *Store) Register(ctx context.Context, node *Node) (*Node, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	/*
 		parse the expiry duration else use the default
 	*/
@@ -63,16 +59,13 @@ func (s *Store) Register(ctx context.Context, node *Node) (*Node, error) {
 	}
 
 	logrus.Infof("Adding new node %q (%s), %s", resp.GetName(), resp.GetUid(), resp)
-	s.reg[resp.GetUid()] = resp
+	s.reg.Store(resp.GetUid(), resp)
 
 	s.sendEvent(ctx, &EventResp{Uid: resp.Uid, Event: "register", Datetime: time.Now().UTC().Format(time.RFC3339)})
 	return resp, nil
 }
 
 func (s *Store) resetExpiry(node *Node, expiry time.Duration) (*Node, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	newExpiry := time.Now().Add(expiry)
 	logrus.Infof("Resetting node %q expiry to %s", node.GetName(), newExpiry)
 
@@ -102,12 +95,12 @@ func (s *Store) Heartbeat(ctx context.Context, req *HeartbeatReq) (*HeartbeatRes
 	/*
 		Fetch the node in question
 	*/
-	node, ok := s.reg[req.GetUid()]
+	cached, ok := s.reg.Load(req.GetUid())
 	if !ok {
 		return resp, fmt.Errorf("Node with UID %q was not found", req.GetUid())
 	}
 
-	node, err := s.resetExpiry(node, expiry)
+	node, err := s.resetExpiry(cached.(*Node), expiry)
 	if err != nil {
 		return resp, err
 	}
@@ -144,13 +137,12 @@ func (s *Store) Heartbeats(stream RegistryService_HeartbeatsServer) error {
 }
 
 func (s *Store) remove(node *Node) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	cached, ok := s.reg.LoadAndDelete(node.GetUid())
 
-	if n, ok := s.reg[node.GetUid()]; ok {
+	if ok {
+		n := cached.(*Node)
 		logrus.Infof("Removing node %s", n.GetUid())
-		node.Expired = true
-		delete(s.reg, n.GetUid())
+		n.Expired = true
 		return nil
 	}
 
@@ -167,8 +159,6 @@ func (s *Store) Unregister(ctx context.Context, node *Node) (*Node, error) {
 	logrus.Infof("Unregistering node %q at %s", n.GetUid(), time.Now().UTC().Format(time.RFC3339))
 
 	s.remove(n)
-	n.Expired = true
-
 	s.sendEvent(ctx, &EventResp{Uid: n.GetUid(), Event: "unregister", Datetime: time.Now().UTC().Format(time.RFC3339)})
 	return n, nil
 }
@@ -194,12 +184,11 @@ func (s *Store) validate_node(n *Node) error {
 }
 
 func (s *Store) get(uid string) (*Node, error) {
-	s.lock.RLock()
-	n, ok := s.reg[uid]
-	s.lock.RUnlock()
+	cached, ok := s.reg.Load(uid)
 
 	if ok {
-		return n, s.validate_node(n)
+		node := cached.(*Node)
+		return node, s.validate_node(node)
 	}
 
 	return nil, fmt.Errorf("Could not find node with UID %q", uid)
@@ -212,12 +201,10 @@ func (s *Store) Get(ctx context.Context, req *GetReq) (*Node, error) {
 
 // Search searches the registry for node with matching names.
 func (s *Store) Search(ctx context.Context, req *SearchReq) (*SearchResp, error) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-
 	nodes := []*Node{}
 
-	for _, node := range s.reg {
+	s.reg.Range(func(key, value interface{}) bool {
+		node := value.(*Node)
 		if err := s.validate_node(node); err == nil {
 			switch req.GetName() {
 			case "*":
@@ -226,7 +213,8 @@ func (s *Store) Search(ctx context.Context, req *SearchReq) (*SearchResp, error)
 				nodes = append(nodes, node)
 			}
 		}
-	}
+		return true
+	})
 
 	return &SearchResp{Nodes: nodes}, nil
 }
@@ -269,13 +257,13 @@ func (s *Store) Events(req *EventReq, stream RegistryService_EventsServer) error
 
 // Close closes the registry.
 func (s *Store) Close() error {
-	s.lock.RLock()
-	nodes := make([]*Node, 0, len(s.reg))
-	s.lock.RUnlock()
+	nodes := []*Node{}
 
-	for _, node := range s.reg {
+	s.reg.Range(func(key, value interface{}) bool {
+		node := value.(*Node)
 		nodes = append(nodes, node)
-	}
+		return true
+	})
 
 	for _, node := range nodes {
 		s.remove(node)
