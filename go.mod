@@ -1,4 +1,4 @@
-module github.com/jenmud/registry
+module github.com/jenmud/submitSD
 
 go 1.19
 
