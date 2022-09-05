@@ -1,4 +1,7 @@
 syntax = "proto3";
+package submitSD;
+option go_package = "github.com/jenmud/submitSD";
+
 
 // Registry service.
 service Registry {
