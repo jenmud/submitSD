@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+// Registry service.
+service Registry {
+  // Add a new service to the registry.
+  rpc Add (AddReq) returns (AddResp) {}
+}
+
+// Service registered in the registry and available for service discovery.
+message Service {
+	string name = 1;
+}
+
+// AddReq is a request used for adding in a new service.
+message AddReq {
+  Service service = 1;
+}
+
+// AddResp is the response once a service has been added.
+message AddResp {
+  Service service = 1;
+}
