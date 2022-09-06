@@ -61,25 +61,38 @@ func (s *Store) expire(service Service) error {
 }
 
 // expireAndRemove checks is a service has expired and will remove it if it has expired.
-func (s *Store) expireAndRemove(service Service) error {
-	if service.ExpiresAt.Before(time.Now()) {
-		return nil
+// true is returned if the service has expired and been removed.
+func (s *Store) expireAndRemove(service Service) (bool, error) {
+	if service.ExpiresAt.After(time.Now()) {
+		return false, nil
 	}
-	return s.expire(service)
+
+	if err := s.expire(service); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // fetch fetches the service from the store expiring it if the service has already expired.
 func (s *Store) fetch(service Service) (Service, error) {
-	s.lock.RUnlock()
-	defer s.lock.Unlock()
+	s.lock.RLock()
 
 	service, ok := s.reg[service.UUID]
 	if !ok {
+		s.lock.RUnlock()
 		return Service{}, errors.New("no service found")
 	}
 
-	if err := s.expireAndRemove(service); err != nil {
+	s.lock.RUnlock()
+
+	ok, err := s.expireAndRemove(service)
+	if err != nil {
 		return Service{}, err
+	}
+
+	if ok {
+		return Service{}, errors.New("service has expired")
 	}
 
 	return service, nil
