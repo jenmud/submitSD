@@ -20,8 +20,13 @@ type Service struct {
 	Expiry      time.Duration  `json:"expiry"`
 }
 
+// HasExpired check if the service has expired.
+func (s Service) HasExpired() bool {
+	return s.ExpiresAt.Before(time.Now())
+}
+
 // FromPB takes a service proto message and updates the service with the fields.
-func (s Service) FromPB(service *proto.Service) error {
+func (s *Service) FromPB(service *proto.Service) error {
 	ip, err := netip.ParseAddrPort(service.GetIp())
 	if err != nil {
 		return err

@@ -81,13 +81,14 @@ func TestStore_expire(t *testing.T) {
 		service Service
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
+		name         string
+		fields       fields
+		args         args
+		expected     bool
+		withCallback bool
 	}{
 		{
-			name: "Successfully removed",
+			name: "Successfully removed with no callback",
 			fields: fields{
 				reg: map[string]Service{
 					"some-service": {
@@ -102,7 +103,26 @@ func TestStore_expire(t *testing.T) {
 					ExpiresAt: time.Now().Add(-5 * time.Second),
 				},
 			},
-			wantErr: false,
+			expected: false,
+		},
+		{
+			name: "Successfully removed with callback",
+			fields: fields{
+				reg: map[string]Service{
+					"some-service": {
+						UUID:      "some-service",
+						ExpiresAt: time.Now().Add(-5 * time.Second),
+					},
+				},
+			},
+			args: args{
+				service: Service{
+					UUID:      "some-service",
+					ExpiresAt: time.Now().Add(-5 * time.Second),
+				},
+			},
+			expected:     false,
+			withCallback: true,
 		},
 	}
 	for _, tt := range tests {
@@ -112,14 +132,27 @@ func TestStore_expire(t *testing.T) {
 				reg:                         tt.fields.reg,
 				UnimplementedRegistryServer: tt.fields.UnimplementedRegistryServer,
 			}
-			if err := s.expire(tt.args.service); (err != nil) != tt.wantErr {
-				t.Errorf("Store.expire() error = %v, wantErr %v", err, tt.wantErr)
+
+			var called bool
+			if tt.withCallback {
+				s.SetEvictedCallback(
+					func(expiredService Service) {
+						called = true
+						if !reflect.DeepEqual(expiredService, tt.args.service) {
+							t.Errorf("Store.expire() expected %v but got %v", tt.args.service, expiredService)
+						}
+					},
+				)
 			}
 
-			if !tt.wantErr {
-				if _, ok := s.reg[tt.args.service.UUID]; ok {
-					t.Errorf("Store.expire() expected service to have been removed but was found")
-				}
+			s.expire(tt.args.service)
+
+			if _, ok := s.reg[tt.args.service.UUID]; ok != tt.expected {
+				t.Errorf("Store.expire() expected %t but was %t", tt.expected, ok)
+			}
+
+			if tt.withCallback && !called {
+				t.Error("Store.expire() callback to have fired but was has not")
 			}
 		})
 	}
@@ -199,10 +232,8 @@ func TestStore_expireAndRemove(t *testing.T) {
 				t.Errorf("Store.expireAndRemove() service to be expired %t but was %t", tt.expired, expired)
 			}
 
-			if !tt.wantErr {
-				if _, ok := s.reg[tt.args.service.UUID]; ok != tt.expected {
-					t.Errorf("Store.expire() service expected %t but was %t", tt.expected, ok)
-				}
+			if _, ok := s.reg[tt.args.service.UUID]; ok != tt.expected {
+				t.Errorf("Store.expire() service expected %t but was %t", tt.expected, ok)
 			}
 		})
 	}
@@ -315,6 +346,111 @@ func TestStore_fetch(t *testing.T) {
 			}
 			if _, ok := s.reg[tt.args.service.UUID]; ok != tt.expected {
 				t.Errorf("Store.fetch() = service expected %t but was %t (services: %d)", tt.expected, ok, len(s.reg))
+			}
+		})
+	}
+}
+
+func TestStore_DeleteExpired(t *testing.T) {
+	type fields struct {
+		cfg                         Config
+		lock                        sync.RWMutex
+		reg                         map[string]Service
+		UnimplementedRegistryServer proto.UnimplementedRegistryServer
+	}
+	tests := []struct {
+		name         string
+		fields       fields
+		expected     []string
+		unexpected   []string
+		withCallback bool
+	}{
+		{
+			name: "Successfully cleaned up expired services",
+			fields: fields{
+				cfg: Config{},
+				reg: map[string]Service{
+					"some-service": {
+						UUID:      "some-service",
+						ExpiresAt: time.Now().Add(5 * time.Second),
+						Expiry:    5 * time.Second,
+					},
+					"some-service-expired-service": {
+						UUID:      "some-service-expired-service",
+						ExpiresAt: time.Now().Add(-5 * time.Second),
+						Expiry:    5 * time.Second,
+					},
+				},
+				UnimplementedRegistryServer: proto.UnimplementedRegistryServer{},
+			},
+			expected:   []string{"some-service"},
+			unexpected: []string{"some-service-expired-service"},
+		},
+		{
+			name: "Successfully cleaned up expired services with callback",
+			fields: fields{
+				cfg: Config{},
+				reg: map[string]Service{
+					"some-service": {
+						UUID:      "some-service",
+						ExpiresAt: time.Now().Add(5 * time.Second),
+						Expiry:    5 * time.Second,
+					},
+					"some-service-expired-service": {
+						UUID:      "some-service-expired-service",
+						ExpiresAt: time.Now().Add(-5 * time.Second),
+						Expiry:    5 * time.Second,
+					},
+				},
+				UnimplementedRegistryServer: proto.UnimplementedRegistryServer{},
+			},
+			expected:     []string{"some-service"},
+			unexpected:   []string{"some-service-expired-service"},
+			withCallback: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Store{
+				cfg:                         tt.fields.cfg,
+				reg:                         tt.fields.reg,
+				UnimplementedRegistryServer: tt.fields.UnimplementedRegistryServer,
+			}
+
+			var called bool
+			if tt.withCallback {
+				s.SetEvictedCallback(
+					func(expiredService Service) {
+						called = true
+						matched := false
+						for _, e := range tt.unexpected {
+							if expiredService.UUID == e {
+								matched = true
+							}
+						}
+						if !matched {
+							t.Errorf("Store.DeleteExpired() expected evicted callback to be called but was not")
+						}
+					},
+				)
+			}
+
+			s.DeleteExpired()
+
+			for _, each := range tt.expected {
+				if _, ok := s.reg[each]; !ok {
+					t.Errorf("Store.DeleteExpired() expected %s but was not found", each)
+				}
+			}
+
+			for _, each := range tt.unexpected {
+				if _, ok := s.reg[each]; ok {
+					t.Errorf("Store.DeleteExpired() %s not expected but was found", each)
+				}
+			}
+
+			if tt.withCallback && !called {
+				t.Errorf("Store.DeleteExpired() expected eviction callback to be called but was not")
 			}
 		})
 	}

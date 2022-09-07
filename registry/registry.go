@@ -11,15 +11,32 @@ import (
 )
 
 // New returns a empty new store
-func New() *Store {
-	return &Store{reg: make(map[string]Service)}
+func New(cfg Config) *Store {
+	return &Store{cfg: cfg, reg: make(map[string]Service)}
 }
+
+// Config is the configuration for the store
+type Config struct {
+	// CleanupInterval is how frequently the cleanup runs over services expiring those that are expired.
+	CleanupInterval time.Duration
+}
+
+// EvictedClb is a callback that is called with the service that was evicted from the store
+// including when it is removed from the store manually.
+type EvictedClb func(Service)
 
 // Store storing registered services
 type Store struct {
-	lock sync.RWMutex
-	reg  map[string]Service
+	cfg        Config
+	lock       sync.RWMutex
+	reg        map[string]Service
+	evictedClb EvictedClb
 	proto.UnimplementedRegistryServer
+}
+
+// SetEvictedCallback sets the callback to be called when a service has been evicted
+func (s *Store) SetEvictedCallback(callback EvictedClb) {
+	s.evictedClb = callback
 }
 
 func (s *Store) add(service Service) error {
@@ -34,6 +51,18 @@ func (s *Store) add(service Service) error {
 	s.reg[service.UUID] = service
 	s.lock.Unlock()
 	return nil
+}
+
+// DeleteExpired removes all expired services.
+func (s *Store) DeleteExpired() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	for _, service := range s.reg {
+		if service.HasExpired() {
+			s.expire(service)
+		}
+	}
 }
 
 // Add adds a new service to the store
@@ -53,25 +82,25 @@ func (s *Store) Add(ctx context.Context, req *proto.AddReq) (*proto.AddResp, err
 }
 
 // expire expires a service and removes it from the store.
-func (s *Store) expire(service Service) error {
-	s.lock.Lock()
+func (s *Store) expire(service Service) {
 	delete(s.reg, service.UUID)
-	s.lock.Unlock()
-	return nil
+
+	if s.evictedClb != nil {
+		s.evictedClb(service)
+	}
 }
 
 // expireAndRemove checks is a service has expired and will remove it if it has expired.
 // true is returned if the service has expired and been removed.
 func (s *Store) expireAndRemove(service Service) (bool, error) {
-	if service.ExpiresAt.After(time.Now()) {
-		return false, nil
+	if service.HasExpired() {
+		s.lock.Lock()
+		s.expire(service)
+		s.lock.Unlock()
+		return true, nil
 	}
 
-	if err := s.expire(service); err != nil {
-		return false, err
-	}
-
-	return true, nil
+	return false, nil
 }
 
 // fetch fetches the service from the store expiring it if the service has already expired.
