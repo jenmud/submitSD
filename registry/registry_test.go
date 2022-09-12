@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"net/netip"
 	"reflect"
 	"sync"
@@ -451,6 +452,153 @@ func TestStore_DeleteExpired(t *testing.T) {
 
 			if tt.withCallback && !called {
 				t.Errorf("Store.DeleteExpired() expected eviction callback to be called but was not")
+			}
+		})
+	}
+}
+
+func TestStore_GetByUUID(t *testing.T) {
+	now := time.Now()
+
+	type fields struct {
+		cfg                         Config
+		lock                        sync.RWMutex
+		reg                         map[string]Service
+		evictedClb                  EvictedClb
+		UnimplementedRegistryServer proto.UnimplementedRegistryServer
+	}
+	type args struct {
+		ctx context.Context
+		req *proto.GetByUUIDReq
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *proto.GetByUUIDResp
+		wantErr bool
+	}{
+		{
+			name: "service found",
+			fields: fields{
+				cfg:  Config{CleanupInterval: 5 * time.Second},
+				lock: sync.RWMutex{},
+				reg: map[string]Service{
+					"my-service1": {
+						UUID:      "my-service1",
+						Name:      "my-service1",
+						Expiry:    10 * time.Second,
+						ExpiresAt: now.Add(10 * time.Second),
+					},
+					"my-service2": {
+						UUID:      "my-service2",
+						Name:      "my-service2",
+						Expiry:    10 * time.Second,
+						ExpiresAt: now.Add(12 * time.Second),
+					},
+					"my-service3": {
+						UUID:      "my-service3",
+						Name:      "my-service3",
+						Expiry:    10 * time.Second,
+						ExpiresAt: now.Add(13 * time.Second),
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				req: &proto.GetByUUIDReq{Uuid: "my-service2"},
+			},
+			want: &proto.GetByUUIDResp{
+				Service: Service{
+					UUID:      "my-service2",
+					Name:      "my-service2",
+					Expiry:    10 * time.Second,
+					ExpiresAt: now.Add(12 * time.Second),
+				}.ToPB(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "service not found",
+			fields: fields{
+				cfg:  Config{CleanupInterval: 5 * time.Second},
+				lock: sync.RWMutex{},
+				reg: map[string]Service{
+					"my-service1": {
+						UUID:      "my-service1",
+						Name:      "my-service1",
+						Expiry:    10 * time.Second,
+						ExpiresAt: now.Add(10 * time.Second),
+					},
+					"my-service2": {
+						UUID:      "my-service2",
+						Name:      "my-service2",
+						Expiry:    10 * time.Second,
+						ExpiresAt: now.Add(12 * time.Second),
+					},
+					"my-service3": {
+						UUID:      "my-service3",
+						Name:      "my-service3",
+						Expiry:    10 * time.Second,
+						ExpiresAt: now.Add(13 * time.Second),
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				req: &proto.GetByUUIDReq{Uuid: "does-not-exist"},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "service expired",
+			fields: fields{
+				cfg:  Config{CleanupInterval: 5 * time.Second},
+				lock: sync.RWMutex{},
+				reg: map[string]Service{
+					"my-service1": {
+						UUID:      "my-service1",
+						Name:      "my-service1",
+						Expiry:    10 * time.Second,
+						ExpiresAt: now.Add(10 * time.Second),
+					},
+					"my-service2": {
+						UUID:      "my-service2",
+						Name:      "my-service2",
+						Expiry:    10 * time.Second,
+						ExpiresAt: now.Add(-12 * time.Second),
+					},
+					"my-service3": {
+						UUID:      "my-service3",
+						Name:      "my-service3",
+						Expiry:    10 * time.Second,
+						ExpiresAt: now.Add(13 * time.Second),
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				req: &proto.GetByUUIDReq{Uuid: "my-service2"},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Store{
+				cfg:        tt.fields.cfg,
+				reg:        tt.fields.reg,
+				evictedClb: tt.fields.evictedClb,
+			}
+			got, err := s.GetByUUID(tt.args.ctx, tt.args.req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Store.GetByUUID() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Store.GetByUUID() = %v, want %v", got, tt.want)
 			}
 		})
 	}
