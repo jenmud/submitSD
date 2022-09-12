@@ -603,3 +603,124 @@ func TestStore_GetByUUID(t *testing.T) {
 		})
 	}
 }
+
+func TestStore_Add(t *testing.T) {
+	now := time.Now()
+
+	type fields struct {
+		cfg                         Config
+		lock                        sync.RWMutex
+		reg                         map[string]Service
+		evictedClb                  EvictedClb
+		UnimplementedRegistryServer proto.UnimplementedRegistryServer
+	}
+	type args struct {
+		ctx context.Context
+		req *proto.AddReq
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *proto.AddResp
+		wantErr bool
+	}{
+		{
+			name: "service added",
+			fields: fields{
+				cfg: Config{
+					CleanupInterval: 5 * time.Second,
+				},
+				reg: map[string]Service{
+					"my-existing-service": {
+						UUID:      "my-existing-service",
+						Name:      "my-existing-service",
+						IP:        netip.MustParseAddrPort("10.2.3.4:8080"),
+						ExpiresAt: now.Add(5 * time.Second),
+						Expiry:    5 * time.Second,
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				req: &proto.AddReq{
+					Service: &proto.Service{
+						Uuid:        "my-new-service",
+						Name:        "my-new-service",
+						Description: "some test service",
+						Version:     "v1.2.3",
+						Type:        "TEST",
+						Ip:          "10.2.3.4:8080",
+						Expiry:      "5s",
+					},
+				},
+			},
+			want: &proto.AddResp{
+				Service: Service{
+					UUID:        "my-new-service",
+					Name:        "my-new-service",
+					IP:          netip.MustParseAddrPort("10.2.3.4:8080"),
+					Version:     "v1.2.3",
+					Type:        "TEST",
+					Description: "some test service",
+					CreatedAt:   now,
+					ExpiresAt:   now.Add(5 * time.Second),
+					Expiry:      5 * time.Second,
+				}.ToPB(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "service uuid conflict",
+			fields: fields{
+				cfg: Config{
+					CleanupInterval: 5 * time.Second,
+				},
+				reg: map[string]Service{
+					"my-existing-service": {
+						UUID:      "my-existing-service",
+						Name:      "my-existing-service",
+						IP:        netip.MustParseAddrPort("10.2.3.4:8080"),
+						ExpiresAt: now.Add(5 * time.Second),
+						Expiry:    5 * time.Second,
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				req: &proto.AddReq{
+					Service: &proto.Service{
+						Uuid:        "my-existing-service",
+						Name:        "my-existing-service",
+						Description: "some test service",
+						Version:     "v1.2.3",
+						Type:        "TEST",
+						Ip:          "10.2.3.4:8080",
+						Expiry:      "5s",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Store{
+				cfg:                         tt.fields.cfg,
+				lock:                        tt.fields.lock,
+				reg:                         tt.fields.reg,
+				evictedClb:                  tt.fields.evictedClb,
+				UnimplementedRegistryServer: tt.fields.UnimplementedRegistryServer,
+			}
+			got, err := s.Add(tt.args.ctx, tt.args.req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Store.Add() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Store.Add() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

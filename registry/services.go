@@ -27,12 +27,9 @@ func (s Service) HasExpired() bool {
 
 // FromPB takes a service proto message and updates the service with the fields.
 func (s *Service) FromPB(service *proto.Service) error {
-	ip, err := netip.ParseAddrPort(service.GetIp())
-	if err != nil {
-		return err
-	}
+	now := time.Now()
 
-	createdAt, err := time.Parse(time.RFC3339, service.GetCreatedAt())
+	ip, err := netip.ParseAddrPort(service.GetIp())
 	if err != nil {
 		return err
 	}
@@ -42,7 +39,7 @@ func (s *Service) FromPB(service *proto.Service) error {
 		return err
 	}
 
-	expiresAt := time.Now().Add(expiry)
+	expiresAt := now.Add(expiry)
 
 	s.UUID = service.GetUuid()
 	s.Description = service.GetDescription()
@@ -50,7 +47,7 @@ func (s *Service) FromPB(service *proto.Service) error {
 	s.Name = service.GetName()
 	s.Type = service.GetType()
 	s.IP = ip
-	s.CreatedAt = createdAt
+	s.CreatedAt = now
 	s.ExpiresAt = expiresAt
 	s.Expiry = expiry
 
