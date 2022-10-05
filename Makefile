@@ -9,4 +9,4 @@ build-linux:
 build-windows:
 	go build -o builds/serviceSD.exe ./main
 
-build: proto build-linux build-windows
+build: generate build-linux build-windows
