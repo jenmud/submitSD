@@ -50,3 +50,117 @@ Please note that this is still in early development and below is a list of featu
 * RestAPI
 * Proper tests
 * ...more to come
+
+# Example
+
+## Create a service
+
+Query:
+
+```json
+mutation create {
+  create(
+    input: {id: "server", name: "submitSD", description: "graphQL server", version: "v0.0.0", address: "localhost:8081", ttl: "1m"}
+  ) {
+    id
+    created_at
+    name
+    description
+    address
+    ttl
+    expires_at
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "create": {
+      "id": "server",
+      "created_at": "2022-10-06T00:11:31.628603+11:00",
+      "name": "submitSD",
+      "description": "graphQL server",
+      "address": "localhost:8081",
+      "ttl": "1m",
+      "expires_at": "2022-10-06T00:12:31.628606+11:00"
+    }
+  }
+}
+```
+
+## Renew a service before it expires
+
+Query:
+
+```json
+mutation renew {
+  renew(input: {id: "server", ttl: "1m"}) {
+    id
+    created_at
+    name
+    description
+    address
+    ttl
+    expires_at
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "renew": {
+      "id": "server",
+      "created_at": "2022-10-06T00:15:25.217102+11:00",
+      "name": "submitSD",
+      "description": "graphQL server",
+      "address": "localhost:8081",
+      "ttl": "1m0s",
+      "expires_at": "2022-10-06T00:16:35.567788+11:00"
+    }
+  }
+}
+```
+
+## Get all services
+
+Query:
+
+```json
+query all {
+  services {
+    id
+    created_at
+    name
+    description
+    address
+    ttl
+    expires_at
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "services": [
+      {
+        "id": "server",
+        "created_at": "2022-10-06T00:13:34.830831+11:00",
+        "name": "submitSD",
+        "description": "graphQL server",
+        "address": "localhost:8081",
+        "ttl": "1m",
+        "expires_at": "2022-10-06T00:14:34.830832+11:00"
+      }
+    ]
+  }
+}
+```
