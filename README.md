@@ -1,6 +1,6 @@
 # SubmitSD
 
-SubmitSD is a proof of concept service discovery service/service.
+SubmitSD is a proof of concept service discovery service/server.
 
 **It is still under development and not feature complete.**
 
