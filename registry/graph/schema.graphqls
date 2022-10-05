@@ -1,0 +1,78 @@
+scalar UUID
+scalar Time
+
+type Service {
+  "id is a unique identifier for the service, if omitted then one will be generated"
+  id: UUID!
+
+  "name is a human readable name of the service"
+  name: String!
+
+  "description is a short description of the service"
+  description: String!
+
+  "version is the version of the service"
+  version: String!
+
+  "type is category type"
+  type: String!
+
+  "address is the address:port of the service is clients can access it on"
+  address: String!
+
+  "created_at is the datetime when the service was created"
+  created_at: Time!
+
+  "expires_at is the datetime when the is scheduled to expire"
+  expires_at: Time!
+
+  "ttl is the time to live duration of the service before it is expired"
+  ttl: String!
+}
+
+type Query {
+  services: [Service!]!
+  service(id: UUID!): Service!
+}
+
+input NewServiceInput {
+  "id is a unique identifier for the service, if omitted then one will be generated"
+  id: UUID
+
+  "name is a human readable name of the service"
+  name: String!
+
+  "description is a short description of the service"
+  description: String
+
+  "version is the version of the service"
+  version: String
+
+  "type is category type"
+  type: String
+
+  "address is the address:port of the service is clients can access it on"
+  address: String!
+
+  "ttl is services time to live before it is expired. If omitted then 30s will be used as the default"
+  ttl: String
+}
+
+input RenewServiceInput {
+  "id is a unique identifier for the service, if omitted then one will be generated"
+  id: UUID!
+
+  "ttl is services time to live before it is expired. If omitted then 30s will be used as the default"
+  ttl: String
+}
+
+input ExpireServiceInput {
+  "id is a unique identifier for the service, if omitted then one will be generated"
+  id: UUID!
+}
+
+type Mutation {
+  create(input: NewServiceInput!): Service!
+  renew(input: RenewServiceInput!): Service!
+  expire(input: ExpireServiceInput): Boolean!
+}

@@ -4,10 +4,45 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/gin-gonic/gin"
+	"github.com/jenmud/submitSD/registry/graph"
+	"github.com/jenmud/submitSD/registry/graph/generated"
 	"github.com/spf13/cobra"
 )
+
+// Defining the Graphql handler
+func graphqlHandler() gin.HandlerFunc {
+	// NewExecutableSchema and Config are in the generated.go file
+	// Resolver is in the resolver.go file
+	h := handler.NewDefaultServer(
+		generated.NewExecutableSchema(
+			generated.Config{Resolvers: graph.NewResolver()},
+		),
+	)
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+// Defining the Playground handler
+func playgroundHandler() gin.HandlerFunc {
+	h := playground.Handler("GraphQL", "/query")
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+func RunGraphQLServer(addr string) {
+	// Setting up Gin
+	r := gin.Default()
+	r.POST("/query", graphqlHandler())
+	r.GET("/", playgroundHandler())
+	r.Run(addr)
+}
 
 // serverCmd represents the server command
 var serverCmd = &cobra.Command{
@@ -16,12 +51,13 @@ var serverCmd = &cobra.Command{
 	Long: `server is a registry which is used for storing services and
 querying for services.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("server called")
+		RunGraphQLServer(cmd.Flags().Lookup("addr").Value.String())
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(serverCmd)
+	serverCmd.Flags().StringP("addr", "a", "localhost:8081", "Listen and accept client connection on this address")
 
 	// Here you will define your flags and configuration settings.
 
