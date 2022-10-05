@@ -1,2 +1,4 @@
 *.pb.go
 **builds
+registry/graph/generated
+registry/graph/model
