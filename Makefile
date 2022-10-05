@@ -4,9 +4,9 @@ generate:
 	go generate ./...
 
 build-linux:
-	go build -o builds/serviceSD ./main
+	go build -o builds/submitSD ./main
 
 build-windows:
-	go build -o builds/serviceSD.exe ./main
+	go build -o builds/submitSD.exe ./main
 
 build: generate build-linux build-windows
