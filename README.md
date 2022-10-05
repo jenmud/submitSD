@@ -34,6 +34,19 @@ Once the server is running and accepting client connections, you can naviate to 
 
 Accessing the service via a browser will take you to the playground where you can start playing with the API.
 
-## NOTE
+## Features in the pipeline
 
-This is still under development and not feature complete.
+Please note that this is still in early development and below is a list of features that I would like to still implement.
+
+* Pubsub events via subscriptions
+* Service queries by
+  * type
+  * name
+  * version
+  * etc....
+* indexing for fast lookups and queries
+* persistance (optional)
+* gRPC service
+* RestAPI
+* Proper tests
+* ...more to come
