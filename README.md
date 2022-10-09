@@ -38,21 +38,25 @@ Accessing the service via a browser will take you to the playground where you ca
 
 Please note that this is still in early development and below is a list of features that I would like to still implement.
 
-* Pubsub events via subscriptions
-* Service queries by
-  * type
-  * name
-  * version
-  * etc....
-* indexing for fast lookups and queries
-* persistance (optional)
-* gRPC service
-* RestAPI
-* Web based GUI with realtime updates
-* Extend the message to include service config
-* Add Update API calls to updated services
-* Proper tests
-* ...more to come
+- [x] Add services
+- [x] Renew services TTL
+- [x] Auto expiry of services
+- [x] GraphQL and served up via HTTP router  
+- [ ] Pubsub events via subscriptions
+- [ ] Service queries by
+  - [ ] type
+  - [ ] name
+  - [ ] version
+  - [ ] etc....
+- [ ] Indexing for fast lookups and queries
+- [ ] Persistance (optional)
+- [ ] gRPC service
+- [ ] RestAPI
+- [ ] Web based GUI with realtime updates
+- [ ] Extend the message to include service config
+- [ ] Add Update API calls to updated services
+- [ ] Proper tests
+...more to come
 
 # Example
 
