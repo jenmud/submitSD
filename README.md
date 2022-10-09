@@ -48,6 +48,9 @@ Please note that this is still in early development and below is a list of featu
 * persistance (optional)
 * gRPC service
 * RestAPI
+* Web based GUI with realtime updates
+* Extend the message to include service config
+* Add Update API calls to updated services
 * Proper tests
 * ...more to come
 
