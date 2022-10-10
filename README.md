@@ -20,6 +20,27 @@ Running `make` will generated all the necessary code and build Linux and Windows
 $ make
 ```
 
+## Running service while developing
+
+Running the service while devloping can be done with `make`
+
+```bash
+$ make run
+```
+
+To change the address or mode pass in the updated variables
+
+| variables | OPTIONS |
+| --- | --- |
+| MODE | release/debug |
+| ADDR | address:port |
+
+Example:
+
+```bash
+$ make ADDR=localhost:8000 run
+```
+
 ## Running the service
 
 Execute the binary which will start listening on address `localhost:8081`. Use `-h` for help.
