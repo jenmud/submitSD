@@ -39,7 +39,7 @@ func playgroundHandler() gin.HandlerFunc {
 func RunGraphQLServer(addr string) {
 	// Setting up Gin
 	r := gin.Default()
-	r.POST("/query", graphqlHandler())
+	r.Any("/query", graphqlHandler())
 	r.GET("/", playgroundHandler())
 	r.Run(addr)
 }

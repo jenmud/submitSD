@@ -42,7 +42,10 @@ Please note that this is still in early development and below is a list of featu
 - [x] Renew services TTL
 - [x] Auto expiry of services
 - [x] GraphQL and served up via HTTP router  
-- [ ] Pubsub events via subscriptions
+- [x] Pubsub events via subscriptions
+- [ ] Auto expiry and cleanups
+  - [ ] Backend store should periodically clean up expired services
+  - [ ] Backend store should take clean up callbacks and publish cleaned/expired services
 - [ ] Service queries by
   - [ ] type
   - [ ] name
@@ -53,7 +56,7 @@ Please note that this is still in early development and below is a list of featu
 - [ ] gRPC service
 - [ ] RestAPI
 - [ ] Web based GUI with realtime updates
-- [ ] Extend the message to include service config
+- [x] Extend the message to include service config
 - [ ] Add Update API calls to updated services
 - [ ] Proper tests
 ...more to come
@@ -64,7 +67,7 @@ Please note that this is still in early development and below is a list of featu
 
 Query:
 
-```json
+```graphql
 mutation create {
   create(
     input: {id: "server", name: "submitSD", description: "graphQL server", version: "v0.0.0", address: "localhost:8081", ttl: "1m"}
@@ -102,7 +105,7 @@ Response:
 
 Query:
 
-```json
+```graphql
 mutation renew {
   renew(input: {id: "server", ttl: "1m"}) {
     id
@@ -138,7 +141,7 @@ Response:
 
 Query:
 
-```json
+```graphql
 query all {
   services {
     id
@@ -168,6 +171,38 @@ Response:
         "expires_at": "2022-10-06T00:14:34.830832+11:00"
       }
     ]
+  }
+}
+```
+
+## Events subscription
+
+Query:
+
+```grapql
+subscription pubsub {
+  events {
+    timestamp
+    event
+    service {
+      name
+    }
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "events": {
+      "timestamp": "2022-10-10T22:53:37.908826+11:00",
+      "event": "RENEWED",
+      "service": {
+        "name": "submitSD"
+      }
+    }
   }
 }
 ```

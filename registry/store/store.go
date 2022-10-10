@@ -101,6 +101,7 @@ func (r *Registry) Add(ctx context.Context, input model.NewServiceInput) (model.
 		Address:   input.Address,
 		CreatedAt: time.Now(),
 		TTL:       *input.TTL,
+		Config:    input.Config,
 	}
 
 	if input.Description != nil {

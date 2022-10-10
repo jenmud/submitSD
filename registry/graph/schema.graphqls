@@ -1,5 +1,6 @@
 scalar UUID
 scalar Time
+scalar Map
 
 type Service {
   "id is a unique identifier for the service, if omitted then one will be generated"
@@ -28,6 +29,9 @@ type Service {
 
   "ttl is the time to live duration of the service before it is expired"
   ttl: String!
+
+  "config is the services configuration and is optional"
+  config: Map
 }
 
 type Query {
@@ -56,6 +60,9 @@ input NewServiceInput {
 
   "ttl is services time to live before it is expired. If omitted then 30s will be used as the default"
   ttl: String
+
+  "config is the services configuration and is optional"
+  config: Map
 }
 
 input RenewServiceInput {
@@ -75,4 +82,22 @@ type Mutation {
   create(input: NewServiceInput!): Service!
   renew(input: RenewServiceInput!): Service!
   expire(input: ExpireServiceInput): Boolean!
+}
+
+enum ACTION {
+  CREATED
+  EXPIRED
+  REMOVED
+  RENEWED
+  UPDATED
+}
+
+type Event {
+  timestamp: Time!
+  event: ACTION!
+  service: Service
+}
+
+type Subscription {
+  events: Event!
 }
