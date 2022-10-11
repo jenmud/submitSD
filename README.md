@@ -68,6 +68,7 @@ Please note that this is still in early development and below is a list of featu
   - [x] Backend store should periodically clean up expired services
   - [x] Backend store should take clean up callbacks and publish cleaned/expired services
   - [ ] Issue with CTRL-C and stopping the cleanup and store properly - BUG
+  - [ ] Issue with the service passed to the callback it is not passing the correct service removed, it is some old reference - BUG
 - [ ] Service queries by
   - [ ] type
   - [ ] name
