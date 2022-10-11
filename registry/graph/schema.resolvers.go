@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jenmud/submitSD/registry/graph/generated"
 	"github.com/jenmud/submitSD/registry/graph/model"
-	"github.com/jenmud/submitSD/registry/store"
 )
 
 // Create is the resolver for the create field.
@@ -20,21 +19,19 @@ func (r *mutationResolver) Create(ctx context.Context, input model.NewServiceInp
 	if err != nil {
 		return nil, err
 	}
-	r.Publish(&model.Event{Timestamp: time.Now(), Event: model.ActionCreated, Service: &service})
 	return &service, err
 }
 
 // Renew is the resolver for the renew field.
 func (r *mutationResolver) Renew(ctx context.Context, input model.RenewServiceInput) (*model.Service, error) {
-	ttlStr := store.DefaultTTL
+	ttl := r.store.Config.TTL
 
 	if input.TTL != nil {
-		ttlStr = *input.TTL
-	}
-
-	ttl, err := time.ParseDuration(ttlStr)
-	if err != nil {
-		return nil, err
+		t, err := time.ParseDuration(*input.TTL)
+		if err != nil {
+			return nil, err
+		}
+		ttl = t
 	}
 
 	service, err := r.store.Renew(input.ID, ttl)
@@ -42,19 +39,12 @@ func (r *mutationResolver) Renew(ctx context.Context, input model.RenewServiceIn
 		return nil, err
 	}
 
-	r.Publish(&model.Event{Timestamp: time.Now(), Event: model.ActionRenewed, Service: &service})
 	return &service, nil
 }
 
 // Expire is the resolver for the expire field.
 func (r *mutationResolver) Expire(ctx context.Context, input *model.ExpireServiceInput) (bool, error) {
-	service, err := r.store.Get(input.ID)
-	if err != nil {
-		return false, err
-	}
-
-	err = r.store.Expire(input.ID)
-	r.Publish(&model.Event{Timestamp: time.Now(), Event: model.ActionExpired, Service: &service})
+	err := r.store.Expire(input.ID)
 	return err == nil, err
 }
 
@@ -110,6 +100,8 @@ func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 // Subscription returns generated.SubscriptionResolver implementation.
 func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subscriptionResolver{r} }
 
-type mutationResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }
-type subscriptionResolver struct{ *Resolver }
+type (
+	mutationResolver     struct{ *Resolver }
+	queryResolver        struct{ *Resolver }
+	subscriptionResolver struct{ *Resolver }
+)

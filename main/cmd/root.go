@@ -4,7 +4,9 @@ Copyright © 2022 Jenda Mudron <jenmud@gmail.com>
 package cmd
 
 import (
+	"context"
 	"os"
+	"os/signal"
 
 	"github.com/spf13/cobra"
 )
@@ -23,7 +25,10 @@ service used for registering services and is used for discovery.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	err := rootCmd.Execute()
+	ctx, cancel := signal.NotifyContext(context.Background())
+	defer cancel()
+
+	err := rootCmd.ExecuteContext(ctx)
 	if err != nil {
 		os.Exit(1)
 	}

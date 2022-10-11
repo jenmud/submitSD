@@ -26,9 +26,9 @@ func (r *Resolver) Publish(event *model.Event) {
 }
 
 // NewResolver returns a new resolver.
-func NewResolver() *Resolver {
+func NewResolver(store *store.Registry) *Resolver {
 	return &Resolver{
-		store:       store.New(),
+		store:       store,
 		subscribers: make(map[string]chan<- *model.Event),
 	}
 }

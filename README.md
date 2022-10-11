@@ -65,8 +65,9 @@ Please note that this is still in early development and below is a list of featu
 - [x] GraphQL and served up via HTTP router  
 - [x] Pubsub events via subscriptions
 - [ ] Auto expiry and cleanups
-  - [ ] Backend store should periodically clean up expired services
-  - [ ] Backend store should take clean up callbacks and publish cleaned/expired services
+  - [x] Backend store should periodically clean up expired services
+  - [x] Backend store should take clean up callbacks and publish cleaned/expired services
+  - [ ] Issue with CTRL-C and stopping the cleanup and store properly - BUG
 - [ ] Service queries by
   - [ ] type
   - [ ] name

@@ -4,22 +4,45 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"log"
+	"time"
+
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-gonic/gin"
 	"github.com/jenmud/submitSD/registry/graph"
 	"github.com/jenmud/submitSD/registry/graph/generated"
+	"github.com/jenmud/submitSD/registry/graph/model"
+	"github.com/jenmud/submitSD/registry/store"
 	"github.com/spf13/cobra"
 )
 
 // Defining the Graphql handler
 func graphqlHandler() gin.HandlerFunc {
-	// NewExecutableSchema and Config are in the generated.go file
-	// Resolver is in the resolver.go file
+	config := store.Config{
+		TTL: store.DefaultConfig.TTL,
+		// CleanupInterval: store.DefaultConfig.CleanupInterval,
+		CleanupInterval: 5 * time.Second,
+		Callback:        nil,
+	}
+
+	store := store.New(config)
+	// defer store.Close()
+
+	r := graph.NewResolver(store)
+
+	/*
+		set the a publishing callback so that subscribers get notified when
+		something interesting happens on the store.
+	*/
+	store.SetCallback(
+		func(event model.Event) {
+			r.Publish(&event)
+		},
+	)
+
 	h := handler.NewDefaultServer(
-		generated.NewExecutableSchema(
-			generated.Config{Resolvers: graph.NewResolver()},
-		),
+		generated.NewExecutableSchema(generated.Config{Resolvers: r}),
 	)
 
 	return func(c *gin.Context) {
@@ -37,7 +60,6 @@ func playgroundHandler() gin.HandlerFunc {
 }
 
 func RunGraphQLServer(addr string) {
-	// Setting up Gin
 	r := gin.Default()
 	r.Any("/query", graphqlHandler())
 	r.GET("/", playgroundHandler())
@@ -52,20 +74,11 @@ var serverCmd = &cobra.Command{
 querying for services.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		RunGraphQLServer(cmd.Flags().Lookup("addr").Value.String())
+		log.Printf("server shutdown")
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(serverCmd)
 	serverCmd.Flags().StringP("addr", "a", "localhost:8081", "Listen and accept client connection on this address")
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// serverCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// serverCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

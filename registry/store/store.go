@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -10,17 +11,77 @@ import (
 	"github.com/jenmud/submitSD/registry/graph/model"
 )
 
-const DefaultTTL = "30s"
-
-// New returns a new empty registry store.
-func New() *Registry {
-	return &Registry{items: make(map[string]model.Service)}
+// DefaultConfig is a config with sensible values.
+var DefaultConfig = Config{
+	TTL:             30 * time.Second,
+	CleanupInterval: time.Minute,
 }
 
+// Config is the registry configurations.
+type Config struct {
+	// TTL is the default TTL of a service is a TTL is not provided.
+	TTL time.Duration
+	// CleanupInterval is how often the cleanup routine will run.
+	CleanupInterval time.Duration
+	// Callback is a callback function which is called when a service is expired and removed.
+	Callback Callback
+}
+
+// New returns a new empty registry store.
+func New(cfg Config) *Registry {
+	r := &Registry{
+		items:  make(map[string]model.Service),
+		Config: cfg,
+		done:   make(chan bool),
+	}
+
+	go r.init()
+
+	return r
+}
+
+// Callback is a callback function which is called when a service is expired.
+type Callback func(event model.Event)
+
 type Registry struct {
-	lock  sync.RWMutex
-	items map[string]model.Service
-	// subscribers []chan
+	lock   sync.RWMutex
+	Config Config
+	items  map[string]model.Service
+	done   chan bool
+}
+
+// init starts the cleanup routine and sets up the registry.
+func (r *Registry) init() {
+	ticker := time.NewTicker(r.Config.CleanupInterval)
+	for {
+		select {
+		case <-r.done:
+			ticker.Stop()
+			log.Print("cleanup ticker stopped")
+			return
+		case <-ticker.C:
+			log.Print("cleanup run")
+			r.Items()
+		}
+	}
+}
+
+// SetCallback overrides the config callback function with the provided.
+func (r *Registry) SetCallback(clb Callback) {
+	r.Config.Callback = clb
+}
+
+// publish publishes a event.
+func (r *Registry) publish(action model.Action, service model.Service) {
+	if r.Config.Callback != nil {
+		r.Config.Callback(
+			model.Event{
+				Timestamp: time.Now(),
+				Event:     action,
+				Service:   &service,
+			},
+		)
+	}
 }
 
 // has returns true if the there is a item with the provided ID.
@@ -48,7 +109,6 @@ func (r *Registry) Get(id string) (model.Service, error) {
 		if err := r.Expire(service.ID); err != nil {
 			return model.Service{}, err
 		}
-		return model.Service{}, fmt.Errorf("service has expired at: %s", service.ExpiresAt.Format(time.RFC3339))
 	}
 
 	return service, nil
@@ -119,7 +179,7 @@ func (r *Registry) Add(ctx context.Context, input model.NewServiceInput) (model.
 	if input.TTL != nil {
 		service.TTL = *input.TTL
 	} else {
-		service.TTL = DefaultTTL
+		service.TTL = r.Config.TTL.String()
 	}
 
 	expiry, err := time.ParseDuration(service.TTL)
@@ -129,14 +189,32 @@ func (r *Registry) Add(ctx context.Context, input model.NewServiceInput) (model.
 
 	service.ExpiresAt = time.Now().Add(expiry)
 	r.items[service.ID] = service
+
+	r.publish(model.ActionCreated, service)
+	return service, nil
+}
+
+func (r *Registry) remove(id string) (model.Service, error) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	service, ok := r.items[id]
+	if !ok {
+		return model.Service{}, fmt.Errorf("could not find service with ID: %s", id)
+	}
+
+	delete(r.items, id)
 	return service, nil
 }
 
 // Remove removes the service from the registery.
 func (r *Registry) Remove(id string) error {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-	delete(r.items, id)
+	service, err := r.remove(id)
+	if err != nil {
+		return err
+	}
+
+	r.publish(model.ActionExpired, service)
 	return nil
 }
 
@@ -158,5 +236,15 @@ func (r *Registry) Renew(id string, ttl time.Duration) (model.Service, error) {
 	service.TTL = ttl.String()
 	service.ExpiresAt = time.Now().Add(ttl)
 	r.items[service.ID] = service
+
+	r.publish(model.ActionRenewed, service)
 	return service, nil
+}
+
+// Closed closed down the registry.
+func (r *Registry) Close() error {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	r.done <- true
+	return nil
 }
